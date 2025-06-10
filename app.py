@@ -5,6 +5,7 @@ import dash
 from dash import dcc, html, dash_table, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
 import numpy as np
+from io import StringIO # Importante para o futuro do pandas
 
 # --- 1. FUNÇÕES AUXILIARES ---
 
@@ -322,7 +323,6 @@ def clear_all_filters(n_clicks):
         raise dash.exceptions.PreventUpdate
     return df['Data_Apenas'].min(), df['Data_Apenas'].max(), [], [], []
 
-
 def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequence=None):
     fig = go.Figure()
     if fig_df.empty:
@@ -371,7 +371,8 @@ def update_visuals_and_kpis(jsonified_data):
     if not jsonified_data:
         return return_empty()
 
-    dff = pd.read_json(jsonified_data, orient='split')
+    # Usar StringIO para evitar o FutureWarning do Pandas
+    dff = pd.read_json(StringIO(jsonified_data), orient='split')
     if dff.empty:
         return return_empty()
 
@@ -390,36 +391,47 @@ def update_visuals_and_kpis(jsonified_data):
     fig_material = px.pie(dff.groupby('Material')['Volume'].sum().reset_index(), values='Volume', names='Material', title='Volume por Material', hole=0.4, color_discrete_sequence=px.colors.sequential.thermal)
     fig_material.update_layout(template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5))
     fig_viagens_tag = create_figure_from_df(dff.groupby('TAG').size().nlargest(15).reset_index(name='Contagem'), 'bar', 'TAG', 'Contagem', 'Top 15 TAGs por Nº de Viagens')
-    fig_anual_comparison = create_figure_from_df(dff.groupby(pd.to_datetime(dff['Data_Apenas']).dt.year)['Volume'].sum().reset_index(), 'bar', 'Data_Apenas', 'Volume', 'Comparativo Anual de Volume')
+    dff['Ano'] = pd.to_datetime(dff['Data_Apenas']).dt.year
+    fig_anual_comparison = create_figure_from_df(dff.groupby('Ano')['Volume'].sum().reset_index(), 'bar', 'Ano', 'Volume', 'Comparativo Anual de Volume')
     fig_anual_comparison.update_xaxes(type='category', title_text="Ano")
-    fig_volume_hourly_distribution = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.hour)['Volume'].sum().reset_index(), 'bar', 'Data_Hora', 'Volume', 'Volume por Hora do Dia', color_sequence=['#004C97'])
+    dff['Hora_Do_Dia'] = dff['Data_Hora'].dt.hour
+    fig_volume_hourly_distribution = create_figure_from_df(dff.groupby('Hora_Do_Dia')['Volume'].sum().reset_index(), 'bar', 'Hora_Do_Dia', 'Volume', 'Volume por Hora do Dia', color_sequence=['#004C97'])
     fig_volume_hourly_distribution.update_xaxes(tickmode='linear', dtick=1, title_text="Hora do Dia")
 
-    matrix_df_data = create_matrix_data(dff.copy())
-    for col in ['Volume Total', 'Volume Mín', 'Volume Médio', 'Volume Máximo', 'Viagens Média']:
-        if col in matrix_df_data.columns:
-            matrix_df_data[col] = matrix_df_data[col].apply(lambda x: f'{x:,.2f}' if pd.notnull(x) and x != '' else '')
-    for col in ['Nº Viagens', 'Viagens 1º Turno', 'Viagens 2º Turno', 'Frota Total']:
-        if col in matrix_df_data.columns:
-            matrix_df_data[col] = matrix_df_data[col].apply(lambda x: f'{int(x):,}' if pd.notnull(x) and x != '' else '')
-    cols_table = [{"name": i, "id": i} for i in matrix_df_data.columns]
-    data_table = matrix_df_data.to_dict('records')
-    kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str = str(matrix_df_data[matrix_df_data['TAG'] == '--- TOTAL DIA ---'].shape[0]), str(dff['TAG'].nunique()), f"{dff.shape[0]:,}"
-    matrix_detail_df = matrix_df_data[~matrix_df_data['TAG'].str.contains("---")].copy()
-    fig_matrix_top_tags = create_figure_from_df(matrix_detail_df.groupby('TAG')['Nº Viagens'].sum().nlargest(5).reset_index(), 'bar', 'TAG', 'Nº Viagens', 'Top 5 TAGs na Análise') if not matrix_detail_df.empty else empty_fig
+    matrix_df = create_matrix_data(dff.copy())
+    
+    matrix_detail_df = matrix_df[~matrix_df['TAG'].str.contains("---")].copy()
+    if not matrix_detail_df.empty:
+        matrix_detail_df['Nº Viagens'] = pd.to_numeric(matrix_detail_df['Nº Viagens'], errors='coerce')
+        top_5_tags = matrix_detail_df.groupby('TAG')['Nº Viagens'].sum().nlargest(5).reset_index()
+        fig_matrix_top_tags = create_figure_from_df(top_5_tags, 'bar', 'TAG', 'Nº Viagens', 'Top 5 TAGs na Análise')
+    else:
+        fig_matrix_top_tags = empty_fig
 
+    for col in ['Volume Total', 'Volume Mín', 'Volume Médio', 'Volume Máximo', 'Viagens Média']:
+        if col in matrix_df.columns:
+            matrix_df[col] = matrix_df[col].apply(lambda x: f'{x:,.2f}' if pd.notnull(x) and x != '' else '')
+    for col in ['Nº Viagens', 'Viagens 1º Turno', 'Viagens 2º Turno', 'Frota Total']:
+        if col in matrix_df.columns:
+            matrix_df[col] = matrix_df[col].apply(lambda x: f'{int(x):,}' if pd.notnull(x) and x != '' else '')
+
+    cols_table = [{"name": i, "id": i} for i in matrix_df.columns]
+    data_table = matrix_df.to_dict('records')
+    kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str = str(matrix_df[matrix_df['TAG'] == '--- TOTAL DIA ---'].shape[0]), str(dff['TAG'].nunique()), f"{dff.shape[0]:,}"
+    
     turno_summary = dff.groupby('Turno').agg(Volume=('Volume', 'sum'), Viagens=('Placa', 'count')).reset_index()
     fig_shift_performance = go.Figure(data=[go.Bar(name='Volume (t)', x=turno_summary['Turno'], y=turno_summary['Volume'], yaxis='y', offsetgroup=1), go.Bar(name='Nº Viagens', x=turno_summary['Turno'], y=turno_summary['Viagens'], yaxis='y2', offsetgroup=2)])
     fig_shift_performance.update_layout(title_text='Desempenho por Turno', template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis=dict(title='Volume Total (t)'), yaxis2=dict(title='Nº de Viagens', overlaying='y', side='right'), barmode='group', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig_weekday_performance = create_figure_from_df(dff.groupby(['Dia_Da_Semana_Num', 'Dia_Da_Semana'])['Volume'].sum().reset_index().sort_values('Dia_Da_Semana_Num'), 'bar', 'Dia_Da_Semana', 'Volume', 'Volume por Dia da Semana', color_sequence=['#87CEEB'])
     tag_efficiency = dff.groupby('TAG').agg(Total_Viagens=('Placa', 'count'), Volume_Total=('Volume', 'sum')).reset_index()
-    tag_efficiency['Volume_Medio_Viagem'] = tag_efficiency['Volume_Total'] / tag_efficiency['Total_Viagens']
-    tag_efficiency = tag_efficiency.sort_values(by='Total_Viagens', ascending=False).rename(columns={'TAG': 'Veículo (TAG)', 'Total_Viagens': 'Nº de Viagens', 'Volume_Total': 'Volume Total (t)', 'Volume_Medio_Viagem': 'Volume Médio/Viagem (t)'})
-    for col in ['Volume Total (t)', 'Volume Médio/Viagem (t)']: tag_efficiency[col] = tag_efficiency[col].apply(lambda x: f"{x:,.2f}")
-    tag_efficiency['Nº de Viagens'] = tag_efficiency['Nº de Viagens'].apply(lambda x: f"{x:,}")
+    if not tag_efficiency.empty:
+        tag_efficiency['Volume_Medio_Viagem'] = tag_efficiency['Volume_Total'] / tag_efficiency['Total_Viagens']
+        tag_efficiency = tag_efficiency.sort_values(by='Total_Viagens', ascending=False).rename(columns={'TAG': 'Veículo (TAG)', 'Total_Viagens': 'Nº de Viagens', 'Volume_Total': 'Volume Total (t)', 'Volume_Medio_Viagem': 'Volume Médio/Viagem (t)'})
+        for col in ['Volume Total (t)', 'Volume Médio/Viagem (t)']: tag_efficiency[col] = tag_efficiency[col].apply(lambda x: f"{x:,.2f}")
+        tag_efficiency['Nº de Viagens'] = tag_efficiency['Nº de Viagens'].apply(lambda x: f"{x:,}")
     eff_cols = [{"name": i, "id": i} for i in tag_efficiency.columns]
     eff_data = tag_efficiency.to_dict('records')
-    top_tags_list = tag_efficiency.head(10)['Veículo (TAG)'].tolist()
+    top_tags_list = tag_efficiency.head(10)['Veículo (TAG)'].tolist() if not tag_efficiency.empty else []
     dff_top_tags = dff[dff['TAG'].isin(top_tags_list)]
     fig_load_efficiency = px.box(dff_top_tags, x='TAG', y='Volume', color='TAG', title='Distribuição de Volume por Viagem (Top 10 Veículos)', labels={'TAG': 'Veículo', 'Volume': 'Volume da Carga (t)'}) if not dff_top_tags.empty else empty_fig
     fig_load_efficiency.update_layout(template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
@@ -439,8 +451,11 @@ def update_visuals_and_kpis(jsonified_data):
     
     rentabilidade_df = dff.groupby('Material').agg(Faturamento_Total=('Valor Bruto Total', 'sum'), Volume_Total=('Volume', 'sum')).reset_index()
     rentabilidade_df = rentabilidade_df[rentabilidade_df['Volume_Total'] > 0]
-    rentabilidade_df['Rentabilidade (R$/t)'] = rentabilidade_df['Faturamento_Total'] / rentabilidade_df['Volume_Total']
-    fig_profitability = create_figure_from_df(rentabilidade_df.sort_values('Rentabilidade (R$/t)', ascending=False), 'bar', 'Material', 'Rentabilidade (R$/t)', 'Rentabilidade (R$/t) por Material') if not rentabilidade_df.empty else empty_fig
+    if not rentabilidade_df.empty:
+        rentabilidade_df['Rentabilidade (R$/t)'] = rentabilidade_df['Faturamento_Total'] / rentabilidade_df['Volume_Total']
+        fig_profitability = create_figure_from_df(rentabilidade_df.sort_values('Rentabilidade (R$/t)', ascending=False), 'bar', 'Material', 'Rentabilidade (R$/t)', 'Rentabilidade (R$/t) por Material')
+    else:
+        fig_profitability = empty_fig
 
     return (kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str, fig_diario, fig_viagens_dia, fig_destino, fig_valor_bruto, fig_material, fig_viagens_tag, fig_anual_comparison, fig_volume_hourly_distribution, data_table, cols_table, kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str, fig_matrix_top_tags, fig_shift_performance, fig_weekday_performance, eff_data, eff_cols, fig_load_efficiency, fig_utilization_gauge, fig_time_between_trips, fig_profitability)
 
