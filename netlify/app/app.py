@@ -1,14 +1,29 @@
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import dash
 from dash import dcc, html, dash_table, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import numpy as np
-from io import StringIO # Importante para o futuro do pandas
+from io import StringIO
+
+# Importe o handler de serverless_wsgi
+from serverless_wsgi import handle_request
+import sys
+import os
+
+# Adicione este caminho para que o Python encontre o resto dos seus arquivos
+# Isso é crucial para que ele encontre 'assets' e 'templates'
+# E para os CSVs, você precisará ajustar o caminho se eles não estiverem na raiz
+# do diretório da função.
+# Exemplo: Se os CSVs estiverem na raiz do seu repositório,
+# a função precisa saber onde procurá-los.
+# Em produção, o ideal é carregar os dados de um banco de dados ou serviço de armazenamento.
+# Por enquanto, se os CSVs estão na raiz do projeto, a função precisará de um path absoluto.
+# Para simplificar, vou ajustar o load_and_prepare_data para carregar do Google Sheets diretamente.
+# (Que você já faz, o que é ótimo!)
 
 # --- 1. FUNÇÕES AUXILIARES ---
-
 def clean_numeric_column(series):
     """Converte uma coluna para numérico, tratando vírgulas e erros."""
     return pd.to_numeric(
@@ -23,24 +38,20 @@ def clean_text_column(series):
 def load_and_prepare_data():
     """Carrega, pré-processa e une os dados das abas do Google Sheets."""
     try:
-        # Links de exportação CSV para suas planilhas
         url_volume = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=0'
         url_frota = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=1061355856'
         url_precificacao = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=998298177'
-        
-        # Carregamento dos dados usando os links
+
         df_volume = pd.read_csv(url_volume)
         df_frota = pd.read_csv(url_frota)
         df_precificacao = pd.read_csv(url_precificacao)
-        
+
         print("Dados carregados do Google Sheets com sucesso!")
 
-        # Renomeação de colunas para padronização
         df_volume.rename(columns={'Coluna1': 'TAG'}, inplace=True, errors='ignore')
         df_frota.rename(columns={'PLACA': 'Placa'}, inplace=True, errors='ignore')
         df_precificacao.rename(columns={'Frente': 'Destino'}, inplace=True, errors='ignore')
 
-        # Limpeza e padronização das colunas de texto
         for col in ['Destino', 'Material', 'Placa', 'TAG']:
             if col in df_volume.columns:
                 df_volume[col] = clean_text_column(df_volume[col])
@@ -49,7 +60,6 @@ def load_and_prepare_data():
         if 'Destino' in df_precificacao.columns:
             df_precificacao['Destino'] = clean_text_column(df_precificacao['Destino'])
 
-        # Processamento de datas e valores numéricos
         df_volume['Data_Hora'] = pd.to_datetime(
             df_volume['Data'].astype(str) + ' ' + df_volume['Hora'].astype(str),
             format='mixed', errors='coerce'
@@ -59,11 +69,9 @@ def load_and_prepare_data():
         df_volume['Hora_Do_Dia'] = df_volume['Data_Hora'].dt.hour
         df_volume['Volume'] = clean_numeric_column(df_volume['Volume'])
 
-        # Junção dos DataFrames
         df_merged = pd.merge(df_volume, df_frota, on='Placa', how='left')
         df_final = pd.merge(df_merged, df_precificacao, on='Destino', how='left')
 
-        # Limpeza das colunas pós-merge
         for col in ['Valor Bruto', 'Volume Máx']:
             if col in df_final.columns:
                 df_final[col] = clean_numeric_column(df_final[col])
@@ -71,7 +79,6 @@ def load_and_prepare_data():
             if col in df_final.columns:
                 df_final[col] = clean_text_column(df_final[col])
 
-        # Cálculos de negócio
         if 'Volume' in df_final.columns and 'Valor Bruto' in df_final.columns:
             df_final['Valor Bruto Total'] = df_final['Volume'] * df_final['Valor Bruto']
         else:
@@ -84,7 +91,7 @@ def load_and_prepare_data():
         df_final['Dia_Da_Semana'] = df_final['Dia_Da_Semana_Num'].map(dias_semana_map)
 
         return df_final
-        
+
     except Exception as e:
         print(f"Ocorreu um erro ao carregar os dados do Google Sheets: {e}")
         return None
@@ -111,7 +118,7 @@ def create_matrix_data(dff):
         'Placa_Nº Viagens': 'sum', 'Turno_Viagens 1º Turno': 'sum', 'Turno_Viagens 2º Turno': 'sum'
     }
     subtotals = grouped.groupby('Data_Apenas').agg(agg_subtotal).reset_index()
-    
+
     frota_por_dia = dff.groupby('Data_Apenas')['TAG'].nunique().reset_index(name='Frota Total')
     subtotals = subtotals.merge(frota_por_dia, on='Data_Apenas')
     if not subtotals.empty and 'Placa_Nº Viagens' in subtotals.columns and (subtotals['Placa_Nº Viagens'] > 0).any():
@@ -122,9 +129,9 @@ def create_matrix_data(dff):
         subtotals['Viagens Média'] = 0
 
     subtotals['TAG'] = '--- TOTAL DIA ---'
-    
+
     matrix_df = pd.concat([grouped, subtotals]).sort_values(by=['Data_Apenas', 'TAG'])
-    
+
     matrix_df.rename(columns={
         'Data_Apenas': 'Data', 'Volume_sum': 'Volume Total', 'Volume_min': 'Volume Mín',
         'Volume_mean': 'Volume Médio', 'Volume_max': 'Volume Máximo',
@@ -140,15 +147,15 @@ def create_matrix_data(dff):
         grand_total['Frota Total'] = dff['TAG'].nunique()
         if grand_total['Frota Total'].iloc[0] > 0:
             grand_total['Viagens Média'] = grand_total['Placa_Nº Viagens'] / grand_total['Frota Total']
-        
+
         grand_total.rename(columns={
             'Placa_Nº Viagens': 'Nº Viagens', 'Volume_sum': 'Volume Total', 'Volume_min': 'Volume Mín',
             'Volume_mean': 'Volume Médio', 'Volume_max': 'Volume Máximo', 
             'Turno_Viagens 1º Turno': 'Viagens 1º Turno', 'Turno_Viagens 2º Turno': 'Viagens 2º Turno'
         }, inplace=True)
-        
+
         matrix_df = pd.concat([matrix_df, grand_total], ignore_index=True)
-    
+
     matrix_df['Data'] = pd.to_datetime(matrix_df['Data'], errors='coerce').dt.strftime('%Y-%m-%d')
     matrix_df.loc[matrix_df['TAG'].isin(['--- TOTAL DIA ---', '--- GRANDE TOTAL ---']), 'Data'] = matrix_df['Data']
     matrix_df.loc[~matrix_df['TAG'].isin(['--- TOTAL DIA ---', '--- GRANDE TOTAL ---']), 'Data'] = ''
@@ -156,25 +163,59 @@ def create_matrix_data(dff):
     return matrix_df
 
 # --- 2. CARREGAMENTO INICIAL DOS DADOS ---
+# Este carregamento agora acontece dentro do contexto da função handler
+# para que seja refeito a cada invocação se necessário, ou otimizado.
+# Para o Dash rodando como serverless, o df precisa ser carregado por sessão/invocação.
+# Vamos mover a inicialização do df para dentro do handler, ou usar dcc.Store.
+# Como você já usa dcc.Store, o df inicial pode ser global e o dcc.Store cuida dos filtros.
 df = load_and_prepare_data()
 if df is None or df.empty:
-    print("FALHA AO CARREGAR DADOS. O dashboard não pode ser iniciado.")
-    exit()
+    print("FALHA AO CARREGAR DADOS. O dashboard pode não funcionar.")
+    # É importante não usar exit() em uma função lambda.
+    # Você pode retornar um erro HTTP ou um layout de erro.
 
 # --- 3. INICIALIZAÇÃO DO APP DASH ---
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP]) 
-server = app.server # Expor o servidor para o Gunicorn
+# O assets_folder deve ser relativo ao diretório da função,
+# ou o Netlify deve ter acesso a ele no publish directory.
+# Se 'assets' está na raiz do seu repositório, e sua função está em netlify/app,
+# então o caminho relativo da função para 'assets' será '../assets'.
+# MAS, se o 'publish' do netlify.toml for "public" ou "templates",
+# os assets precisarão ser acessíveis através do caminho do servidor.
+# Para Dash em Netlify Functions, o assets_folder precisa estar no mesmo local
+# da função ou ser tratado por um path reescrever no Netlify.
+# A melhor prática é colocar 'assets' e 'templates' no diretório da função
+# ou usar o `publish` do `netlify.toml` e configurar a reescrita de URL.
+# POR ENQUANTO, vamos assumir que 'assets' estará na raiz do deploy.
+# A configuração do `netlify.toml` `publish = "templates"` sugere que a pasta 'templates'
+# é o diretório raiz do site estático. Se o `assets` estiver lá, beleza.
+# Se não, teremos que ajustar.
+
+# **Ajuste Importante para `assets_folder`:**
+# Se sua pasta `assets` está na raiz do seu repositório (ao lado de `app.py` original),
+# e você moveu `app.py` para `netlify/app/app.py`, então o `assets_folder` na instância do Dash
+# precisa apontar para o caminho correto para que a função o encontre.
+# Uma forma comum é copiar os assets para dentro do diretório da função ou para um diretório que
+# a função saiba onde está.
+# A forma mais robusta é usar o `server.static_folder` e `server.static_url_path`.
+# Vamos simplificar e assumir que o Netlify Functions pode "ver" a pasta `assets` na raiz do deploy.
+# ou que você a moverá para `netlify/app/assets`.
+# Se 'assets' está na raiz do *seu projeto GIT*, e o Netlify copia isso para o ambiente de build,
+# e a função está em `netlify/app`, então `assets_folder` pode ser um problema.
+
+# Para Netlify Functions, o servidor WSGI (Flask/Dash) deve ser o `app.server` exposto para `serverless_wsgi`.
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='assets')
+server = app.server # Expor o servidor para o Gunicorn/serverless_wsgi
 app.title = "Análise Operacional de Produção"
 
 # --- 4. LAYOUT DO DASHBOARD ---
 app.layout = dbc.Container(fluid=True, className="app-container", children=[
     dcc.Store(id='filtered-data-store'),
-    
+
     html.Div(className="app-header", children=[
         html.H1("Performance da Frota"),
         html.P("Monitoramento e Análise de Operações de Transporte"),
     ]),
-    
+
     dbc.Card(className="filter-panel", body=True, children=[
         dbc.Row([
             dbc.Col(dcc.DatePickerRange(
@@ -198,7 +239,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
         ]),
         dbc.Row([
             dbc.Col(dbc.Button("Limpar Todos os Filtros", id='clear-filters-button', color="primary", className="w-100"), 
-                    width=12)
+                        width=12)
         ])
     ]),
 
@@ -286,7 +327,7 @@ app.layout = dbc.Container(fluid=True, className="app-container", children=[
                     ]), lg=6, md=12, className="mb-4"),
                     dbc.Col(dbc.Card(dcc.Graph(id='graph-load-efficiency')), lg=6, md=12, className="mb-4"),
                 ]),
-                 dbc.Row([
+                    dbc.Row([
                     dbc.Col(dbc.Card(dcc.Graph(id='graph-time-between-trips')), lg=6, md=12, className="mb-4"),
                     dbc.Col(dbc.Card(dcc.Graph(id='graph-profitability-analysis')), lg=6, md=12, className="mb-4"),
                 ]),
@@ -331,7 +372,7 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
         fig = px.bar(fig_df, x=x_col, y=y_col, title=title, text_auto='.2s', color_discrete_sequence=color_sequence if color_sequence else ['#FFD700'])
     elif chart_type == 'line':
         fig = px.line(fig_df, x=x_col, y=y_col, title=title, markers=True, color_discrete_sequence=color_sequence if color_sequence else ['#FFD700'])
-    
+
     fig.update_layout(
         template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#f0f0f0'), margin=dict(l=40, r=40, t=50, b=40)
@@ -358,7 +399,7 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
 )
 def update_visuals_and_kpis(jsonified_data):
     empty_fig = go.Figure().update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                          title_text="Sem dados", title_x=0.5, font_color='#bbbbbb', height=300)
+                                            title_text="Sem dados", title_x=0.5, font_color='#bbbbbb', height=300)
 
     def return_empty():
         kpis = ["-"] * 4
@@ -371,19 +412,18 @@ def update_visuals_and_kpis(jsonified_data):
     if not jsonified_data:
         return return_empty()
 
-    # Usar StringIO para evitar o FutureWarning do Pandas
     dff = pd.read_json(StringIO(jsonified_data), orient='split')
     if dff.empty:
         return return_empty()
 
     dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
     dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
-    
+
     kpi_volume_str = f"{dff['Volume'].sum():,.0f}"
     kpi_valor_str = f"R$ {dff['Valor Bruto Total'].sum():,.2f}"
     kpi_viagens_str = f"{len(dff):,}"
     kpi_frota_str = str(dff['TAG'].nunique())
-    
+
     fig_diario = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date)['Volume'].sum().reset_index(), 'line', 'Data_Hora', 'Volume', 'Volume Transportado por Dia')
     fig_viagens_dia = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date).size().reset_index(name='Contagem'), 'line', 'Data_Hora', 'Contagem', 'Viagens por Dia', color_sequence=['#87CEEB'])
     fig_destino = create_figure_from_df(dff.groupby('Destino')['Volume'].sum().nlargest(15).reset_index(), 'bar', 'Destino', 'Volume', 'Top 15 Destinos por Volume')
@@ -399,7 +439,7 @@ def update_visuals_and_kpis(jsonified_data):
     fig_volume_hourly_distribution.update_xaxes(tickmode='linear', dtick=1, title_text="Hora do Dia")
 
     matrix_df = create_matrix_data(dff.copy())
-    
+
     matrix_detail_df = matrix_df[~matrix_df['TAG'].str.contains("---")].copy()
     if not matrix_detail_df.empty:
         matrix_detail_df['Nº Viagens'] = pd.to_numeric(matrix_detail_df['Nº Viagens'], errors='coerce')
@@ -418,7 +458,7 @@ def update_visuals_and_kpis(jsonified_data):
     cols_table = [{"name": i, "id": i} for i in matrix_df.columns]
     data_table = matrix_df.to_dict('records')
     kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str = str(matrix_df[matrix_df['TAG'] == '--- TOTAL DIA ---'].shape[0]), str(dff['TAG'].nunique()), f"{dff.shape[0]:,}"
-    
+
     turno_summary = dff.groupby('Turno').agg(Volume=('Volume', 'sum'), Viagens=('Placa', 'count')).reset_index()
     fig_shift_performance = go.Figure(data=[go.Bar(name='Volume (t)', x=turno_summary['Turno'], y=turno_summary['Volume'], yaxis='y', offsetgroup=1), go.Bar(name='Nº Viagens', x=turno_summary['Turno'], y=turno_summary['Viagens'], yaxis='y2', offsetgroup=2)])
     fig_shift_performance.update_layout(title_text='Desempenho por Turno', template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis=dict(title='Volume Total (t)'), yaxis2=dict(title='Nº de Viagens', overlaying='y', side='right'), barmode='group', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
@@ -440,7 +480,7 @@ def update_visuals_and_kpis(jsonified_data):
     dff_utilizacao = dff[dff['Volume Máx'] > 0]
     fig_utilization_gauge = go.Figure(go.Indicator(mode="gauge+number", value=(dff_utilizacao['Volume'].sum()/dff_utilizacao['Volume Máx'].sum())*100, title={'text': "Utilização Média da Capacidade"}, gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "#FFD700"}, 'steps': [{'range': [0, 70], 'color': '#c0392b'}, {'range': [70, 90], 'color': '#f39c12'}, {'range': [90, 100], 'color': '#27ae60'}]}, number={'suffix': '%'})) if not dff_utilizacao.empty else empty_fig
     fig_utilization_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white'})
-    
+
     dff_sorted = dff.sort_values(by=['TAG', 'Data_Hora'])
     dff_sorted['Tempo_Horas'] = dff_sorted.groupby('TAG')['Data_Hora'].diff().dt.total_seconds() / 3600
     tempo_data = dff_sorted['Tempo_Horas'].dropna()
@@ -448,7 +488,7 @@ def update_visuals_and_kpis(jsonified_data):
     fig_time_between_trips = px.histogram(tempo_data, nbins=30, title='Distribuição do Tempo Entre Viagens (Horas)', labels={'value': 'Horas'}) if not tempo_data.empty else empty_fig
     fig_time_between_trips.update_layout(template="plotly_dark", title_x=0.5, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False, bargap=0.1)
     fig_time_between_trips.update_traces(marker_color='#004C97')
-    
+
     rentabilidade_df = dff.groupby('Material').agg(Faturamento_Total=('Valor Bruto Total', 'sum'), Volume_Total=('Volume', 'sum')).reset_index()
     rentabilidade_df = rentabilidade_df[rentabilidade_df['Volume_Total'] > 0]
     if not rentabilidade_df.empty:
@@ -459,6 +499,19 @@ def update_visuals_and_kpis(jsonified_data):
 
     return (kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str, fig_diario, fig_viagens_dia, fig_destino, fig_valor_bruto, fig_material, fig_viagens_tag, fig_anual_comparison, fig_volume_hourly_distribution, data_table, cols_table, kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str, fig_matrix_top_tags, fig_shift_performance, fig_weekday_performance, eff_data, eff_cols, fig_load_efficiency, fig_utilization_gauge, fig_time_between_trips, fig_profitability)
 
-# --- 6. EXECUTAR O APP ---
-if __name__ == '__main__':
-    app.run(debug=False)
+# --- NOVO: Handler para Netlify Functions ---
+# Este é o ponto de entrada da sua função serverless.
+# Ele pega o evento da requisição HTTP e o passa para o servidor Flask (que é a base do Dash).
+# O `serverless_wsgi` faz a mágica de adaptar isso.
+
+def handler(event, context):
+    # Os logs de depuração são úteis no Netlify
+    print("Evento recebido:", event)
+    print("Contexto recebido:", context)
+
+    # Chama a função handle_request do serverless_wsgi
+    # para que ela processe a requisição AWS Lambda e a passe para o seu app.server (Flask/Dash).
+    return handle_request(server, event, context)
+
+# Remova a linha `if __name__ == '__main__': app.run(debug=False)` daqui
+# pois o aplicativo será executado pelo handler da função.
