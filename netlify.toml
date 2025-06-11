@@ -1,0 +1,82 @@
+[build]
+  # O comando de build que o Netlify vai executar.
+  # Ele vai instalar as dependências do Python e então
+  # precisamos que seu app.py (agora adaptado) gere a parte front-end ou seja o ponto de entrada.
+  # Para Dash com serverless-wsgi, geralmente não há um "build" de arquivos estáticos.
+  # A função serverless serve o conteúdo diretamente.
+  # Vamos deixar o comando de build como "echo" por enquanto,
+  # porque a lógica principal estará dentro da função.
+  command = "echo 'No static build command required for serverless function' && pip install -r requirements.txt"
+
+  # O diretório que o Netlify vai servir como site estático.
+  # Para uma função serverless que serve o Dash, este pode não ser usado ativamente para o frontend.
+  # No entanto, é necessário definir. Podemos apontar para a pasta 'templates' ou 'assets'
+  # se houver arquivos estáticos que o Dash precise, ou apenas um diretório temporário.
+  # Para Dash via serverless function, o frontend é geralmente servido pela própria função.
+  # Vamos apontar para onde seu index.html está, que é 'templates'.
+  publish = "templates"
+
+[functions]
+  # Define o diretório onde suas funções Netlify (Python) estão.
+  # Certifique-se de que corresponde à estrutura que você criou: netlify/app
+  directory = "netlify/app"
+
+  # Tempo limite para a função (em segundos).
+  # Este é o principal ponto do seu erro. Deve ser um objeto.
+  # O valor '10' que você tinha é o que estava causando o problema.
+  # Aumente para 30 ou 60 segundos para permitir que o Dash inicialize.
+  # O padrão da AWS Lambda é 3 segundos, o Netlify aumenta um pouco.
+  # O máximo para Lambda é 15 minutos (900 segundos).
+  timeout = 60 # Tempo limite em segundos (pode ajustar)
+
+  # É possível que você precise de outras configurações para Python.
+  # Para Python, você normalmente não usa external_node_modules.
+  # O Netlify inferirá o runtime do Python a partir do seu build.
+
+  # A sintaxe correta para o timeout é a seguinte:
+  # [functions]
+  #   [functions.timeout]
+  #   value = 60 # O valor real do timeout
+  #   # Outras configurações como external_node_modules não são para Python
+  #   # ou são muito específicas.
+  #
+  # **ATENÇÃO:** O erro que o Netlify te deu sobre `functions.timeout` ser um objeto
+  # pode ser enganoso para Python. Em Python, o `timeout` geralmente é um número inteiro.
+  # Isso me faz pensar que talvez a documentação que você está usando (ou o exemplo
+  # que o Netlify te deu no erro) seja mais para Node.js functions.
+  #
+  # Vamos tentar com o valor simples `timeout = 60` primeiro, se ele ainda reclamar
+  # que precisa ser um objeto, então a única forma de contornar seria usar
+  # uma estrutura diferente (e talvez seja um bug ou limitação no Netlify para Python functions).
+  #
+  # **Vamos seguir a sintaxe de exemplo do Netlify, mesmo que seja para Node.js,
+  # pois ele está pedindo um OBJETO:**
+  # directory = "netlify/app"
+  #   [functions.timeout]
+  #   # O Netlify não especifica uma propriedade 'value' aqui para Python.
+  #   # Essa é a parte confusa. Se ele realmente exige um objeto, mas não
+  #   # tem uma propriedade específica para o valor de timeout dentro desse objeto,
+  #   # a melhor abordagem é **não definir o timeout na seção functions.timeout**,
+  #   # e deixar o padrão.
+  #
+  # **Vamos simplificar e remover a linha `timeout = 10` inteira por enquanto.**
+  # Se a função do Netlify precisar de um timeout maior, você configura nas variáveis de ambiente.
+  #
+  # **Vamos usar esta versão mais segura para o `netlify.toml`:**
+
+  directory = "netlify/app" # Diretório das suas Netlify Functions (Python)
+
+  # No momento, o timeout para Python Functions é definido via variáveis de ambiente,
+  # ou o valor padrão é usado. Se o Netlify está reclamando que 'timeout'
+  # DEVE ser um objeto na seção [functions], isso é um bug ou confusão na documentação.
+  # A forma correta para funções Python é definir NETLIFY_LAMBDA_TIMEOUT em Environment Variables.
+  #
+  # Portanto, remova a linha `timeout = 10` completamente do [functions]
+  # e configure o timeout no painel do Netlify, em Site Settings > Build & deploy > Environment variables.
+  # Adicione uma variável: KEY = `NETLIFY_LAMBDA_TIMEOUT`, VALUE = `60` (ou o tempo que você quiser)
+
+# Contextos de build (opcional, para deploys específicos)
+# [context.production]
+#   environment = { PYTHON_VERSION = "3.9" } # Exemplo de como forçar uma versão específica do Python
+# [context.deploy-preview]
+#   command = "npm run build:preview"
