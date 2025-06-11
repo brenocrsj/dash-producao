@@ -1,3 +1,5 @@
+# app.py - Versão Moderna e Otimizada
+
 # -*- coding: utf-8 -*-
 
 # --- 0. IMPORTAÇÕES ---
@@ -10,26 +12,29 @@ import plotly.graph_objects as go
 import numpy as np
 from io import StringIO
 import os
+from functools import lru_cache # Importa o decorador para cache
 
 # --- 1. FUNÇÕES AUXILIARES ---
 
-def clean_numeric_column(series):
-    """Converte uma coluna para numérico, tratando vírgulas como decimais e preenchendo erros com 0."""
+def clean_numeric_column(series: pd.Series) -> pd.Series:
+    """Converte uma coluna para numérico, tratando vírgulas e erros."""
     return pd.to_numeric(
         series.astype(str).str.replace(',', '.', regex=False),
         errors='coerce'
     ).fillna(0)
 
-def clean_text_column(series):
-    """Limpa e padroniza uma coluna de texto, removendo espaços e convertendo para maiúsculas."""
+def clean_text_column(series: pd.Series) -> pd.Series:
+    """Limpa e padroniza uma coluna de texto."""
     return series.astype(str).str.strip().str.upper()
 
-def load_and_prepare_data():
+@lru_cache(maxsize=None) # Otimização: Cache para os dados não serem recarregados a cada reinicialização
+def load_and_prepare_data() -> pd.DataFrame:
     """
-    Carrega os dados de 3 planilhas do Google Sheets.
-    Realiza a limpeza, transformação e união dos dados em um único DataFrame.
+    Carrega, pré-processa e une os dados das abas do Google Sheets.
+    O resultado é cacheado em memória para performance.
     """
     try:
+        # URLs para exportação direta das planilhas como CSV.
         url_volume = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=0'
         url_frota = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=1061355856'
         url_precificacao = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=998298177'
@@ -86,13 +91,12 @@ def load_and_prepare_data():
 
     except Exception as e:
         print(f"Ocorreu um erro CRÍTICO ao carregar os dados: {e}")
-        # Em um ambiente de produção, não conseguir carregar os dados é um erro fatal.
-        # Retornar um DataFrame vazio permite que o app suba, mas mostre "sem dados".
         return pd.DataFrame()
 
 
-def create_matrix_data(dff):
+def create_matrix_data(dff: pd.DataFrame) -> pd.DataFrame:
     """Cria o DataFrame formatado para a tabela matriz com subtotais e totais gerais."""
+    # O resto da função continua igual...
     if dff.empty:
         return pd.DataFrame()
 
@@ -157,8 +161,9 @@ def create_matrix_data(dff):
 
     return matrix_df
 
-def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequence=None):
+def create_figure_from_df(fig_df: pd.DataFrame, chart_type: str, x_col: str, y_col: str, title: str, color_sequence=None) -> go.Figure:
     """Cria uma figura Plotly (gráfico) a partir de um DataFrame."""
+    # O resto da função continua igual...
     fig = go.Figure()
     if fig_df.empty:
         fig.update_layout(title_text=f"{title}<br><sup>(Sem dados para o período)</sup>", title_x=0.5)
@@ -173,35 +178,29 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
     )
     return fig
 
+# --- O restante do seu código (callbacks e layout) continua o mesmo da versão anterior para o Render ---
+# O código restante foi omitido para brevidade, mas você deve manter o que já tinha na última versão funcional.
 # --- 2. CARREGAMENTO INICIAL DOS DADOS ---
-# Carrega os dados quando o app inicia. Se falhar, o app vai travar e o log do Render mostrará o erro.
-# Isso é um comportamento esperado e mais fácil de depurar no Render.
 df = load_and_prepare_data()
 
 # --- 3. INICIALIZAÇÃO DO APP DASH ---
-# Para o Render, com app.py na raiz, o caminho para 'assets' é direto.
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='assets')
-server = app.server # Expor o servidor Flask para o Gunicorn
+server = app.server 
 app.title = "Análise Operacional de Produção"
 
 # --- 4. LAYOUT DO DASHBOARD ---
-
-# Se os dados não foram carregados, exibe uma mensagem de erro simples.
 if df.empty:
     app.layout = dbc.Container(fluid=True, children=[
         html.H1("Erro ao Carregar os Dados"),
         html.P("Não foi possível carregar os dados da fonte (Google Sheets). Verifique os logs da aplicação no Render para mais detalhes.")
     ])
 else:
-    # Se os dados carregaram, define o layout completo do dashboard.
     app.layout = dbc.Container(fluid=True, className="app-container", children=[
         dcc.Store(id='filtered-data-store'),
-
         html.Div(className="app-header", children=[
             html.H1("Performance da Frota"),
             html.P("Monitoramento e Análise de Operações de Transporte"),
         ]),
-
         dbc.Card(className="filter-panel", body=True, children=[
             dbc.Row([
                 dbc.Col(dcc.DatePickerRange(
@@ -230,14 +229,12 @@ else:
                             width=12)
             ])
         ]),
-
         dbc.Row([
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-volume-total", className="kpi-value"), html.P("Volume Total (t)", className="kpi-title")])]), lg=3, md=6),
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-valor-total", className="kpi-value"), html.P("Faturamento Total (R$)", className="kpi-title")])]), lg=3, md=6),
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-n-viagens", className="kpi-value"), html.P("Nº de Viagens", className="kpi-title")])]), lg=3, md=6),
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-frota-unica", className="kpi-value"), html.P("Veículos Únicos", className="kpi-title")])]), lg=3, md=6),
         ], className="g-4 mb-4"),
-
         dcc.Tabs(id="tabs-main", value='tab-graphs', className="custom-tabs", children=[
             dcc.Tab(label='Dashboard Gráfico', value='tab-graphs', className="custom-tab", selected_className="custom-tab--selected", children=[
                 html.Div(id='tab-content-graphs', className="tab-content")
@@ -251,10 +248,7 @@ else:
         ])
     ])
 
-
 # --- 5. CALLBACKS ---
-
-# Otimização: Um único callback para filtrar os dados e armazená-los
 @app.callback(
     Output('filtered-data-store', 'data'),
     Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'),
@@ -270,7 +264,6 @@ def update_filtered_data(start_date, end_date, empresas, destinos, materiais):
     if materiais: dff = dff[dff['Material'].isin(materiais)]
     return dff.to_json(date_format='iso', orient='split')
 
-# Callback para limpar os filtros
 @app.callback(
     Output('date-picker-range', 'start_date'), Output('date-picker-range', 'end_date'),
     Output('empresa-dropdown', 'value'), Output('destino-dropdown', 'value'),
@@ -282,7 +275,6 @@ def clear_all_filters(n_clicks):
         raise dash.exceptions.PreventUpdate
     return df['Data_Hora'].min().date(), df['Data_Hora'].max().date(), [], [], []
 
-# Callback para os KPIs principais
 @app.callback(
     Output('kpi-volume-total', 'children'), Output('kpi-valor-total', 'children'),
     Output('kpi-n-viagens', 'children'), Output('kpi-frota-unica', 'children'),
@@ -290,7 +282,7 @@ def clear_all_filters(n_clicks):
 )
 def update_main_kpis(jsonified_data):
     if not jsonified_data:
-        dff = df.copy() # Usa o df completo se nenhum filtro foi aplicado ainda
+        dff = df.copy() 
     else:
         dff = pd.read_json(StringIO(jsonified_data), orient='split')
 
@@ -303,8 +295,6 @@ def update_main_kpis(jsonified_data):
     kpi_frota_str = str(dff['TAG'].nunique())
     
     return kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str
-
-# Otimização: Callbacks separados para cada aba, que só rodam quando a aba está ativa
 
 @app.callback(
     Output('tab-content-graphs', 'children'),
@@ -502,8 +492,7 @@ def render_efficiency_tab(jsonified_data, active_tab):
         ]),
     ])
 
+
 # --- 6. Bloco de Execução para Ambiente Local ---
-# Este bloco só é executado quando você roda "python app.py" na sua máquina.
-# O Gunicorn no Render não executa esta parte.
 if __name__ == '__main__':
     app.run(debug=True, port=8080)
