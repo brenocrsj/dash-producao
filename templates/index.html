@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu App de Viagens</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    </head>
+<body>
+    <div class="container">
+        <h1 class="title">Gestão de Viagens</h1>
+        <h2 class="section-title">Registrar Nova Viagem</h2>
+
+        <label for="origem" class="label">Origem</label>
+        <input type="text" id="origem" class="input" placeholder="Selecione a origem">
+
+        <label for="select-origem" class="label">Origem (Custom Select)</label>
+        <div class="select-input" id="select-origem">
+            <span>Selecione a Origem</span>
+        </div>
+
+        <button class="button">
+            <span class="button-text">Registrar Viagem</span>
+        </button>
+
+        <h2 class="section-title">Minhas Viagens</h2>
+        <div class="viagem-container">
+            <p class="info-text">Origem: UTM</p>
+            <p class="info-text">Destino: CDB</p>
+            <p class="status-text status-em-andamento">Status: Em Andamento</p>
+        </div>
+        <div class="viagem-container">
+            <p class="info-text">Origem: Búfalos</p>
+            <p class="info-text">Destino: UTM</p>
+            <p class="status-text status-finalizada">Status: Finalizada</p>
+        </div>
+        <div class="viagem-container">
+            <p class="info-text">Origem: Mina CDO</p>
+            <p class="info-text">Destino: CDB</p>
+            <p class="status-text status-cancelada">Status: Cancelada</p>
+        </div>
+
+        <button class="action-button start-button">
+            <span class="action-button-text">Iniciar Viagem</span>
+        </button>
+        <button class="action-button finish-button">
+            <span class="action-button-text">Finalizar Viagem</span>
+        </button>
+
+        <h2 class="section-title">Ver Viagens</h2>
+        <div class="toggle-button-container">
+            <button class="toggle-button toggle-button-active">
+                <span class="toggle-button-text toggle-button-text-active">Ativas</span>
+            </button>
+            <button class="toggle-button">
+                <span class="toggle-button-text">Finalizadas</span>
+            </button>
+            <button class="toggle-button">
+                <span class="toggle-button-text">Todas</span>
+            </button>
+        </div>
+
+        <h2 class="section-title">Filtros</h2>
+        <div class="filter-container">
+            <label class="label">Filtrar por Origem:</label>
+            <div class="filter-button-container">
+                <button class="filter-button filter-button-selected">Todos</button>
+                <button class="filter-button">UTM</button>
+                <button class="filter-button">Búfalos</button>
+                <button class="filter-button">Mina CDO</button>
+            </div>
+            <label class="label" style="margin-top: 15px;">Filtrar por Material:</label>
+            <div class="filter-button-container">
+                <button class="filter-button filter-button-selected">Qualquer</button>
+                <button class="filter-button">Sinter Feed</button>
+                <button class="filter-button">ROM</button>
+            </div>
+        </div>
+
+        <p class="timer">00:00:00</p>
+        <p class="empty-list-text">Nenhuma viagem encontrada para os filtros selecionados.</p>
+
+    </div>
+
+    <div class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 class="section-title">Selecione uma Opção</h3>
+            <div class="option-list">
+                <div class="option-item"><span>Opção A</span></div>
+                <div class="option-item"><span>Opção B</span></div>
+                <div class="option-item"><span>Opção C</span></div>
+            </div>
+            <button class="button" style="margin-top: 15px;" onclick="closeModal()">
+                <span class="button-text">Fechar</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Funções para controlar o modal
+        function openModal() {
+            document.querySelector('.modal-overlay').style.display = 'flex';
+        }
+        function closeModal() {
+            document.querySelector('.modal-overlay').style.display = 'none';
+        }
+
+        // Adiciona listeners quando o DOM estiver completamente carregado
+        document.addEventListener('DOMContentLoaded', () => {
+            // Lógica para o SelectInput customizado
+            const selectInput = document.getElementById('select-origem');
+            if (selectInput) {
+                selectInput.addEventListener('click', openModal);
+            }
+
+            // Lógica para seleção de itens na lista do modal
+            document.querySelectorAll('.modal-content .option-item').forEach(item => {
+                item.addEventListener('click', (event) => {
+                    const selectedText = event.target.textContent.trim();
+                    console.log('Opção selecionada:', selectedText);
+                    if (selectInput) {
+                        selectInput.querySelector('span').textContent = selectedText;
+                        selectInput.style.color = '#000'; // Define cor do texto selecionado
+                    }
+                    closeModal();
+                });
+            });
+
+            // Lógica para toggle buttons
+            document.querySelectorAll('.toggle-button-container .toggle-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.toggle-button-container .toggle-button').forEach(btn => {
+                        btn.classList.remove('toggle-button-active');
+                        btn.querySelector('.toggle-button-text').classList.remove('toggle-button-text-active');
+                    });
+                    button.classList.add('toggle-button-active');
+                    button.querySelector('.toggle-button-text').classList.add('toggle-button-text-active');
+                    console.log('Botão toggle clicado:', button.textContent.trim());
+                });
+            });
+
+            // Lógica para filter buttons
+            document.querySelectorAll('.filter-button-container .filter-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove 'filter-button-selected' de todos os botões no mesmo grupo
+                    const parentContainer = button.closest('.filter-button-container');
+                    parentContainer.querySelectorAll('.filter-button').forEach(btn => {
+                        btn.classList.remove('filter-button-selected');
+                    });
+                    // Adiciona 'filter-button-selected' apenas ao botão clicado
+                    button.classList.add('filter-button-selected');
+                    console.log('Botão filtro clicado:', button.textContent.trim());
+                });
+            });
+
+            // Exemplo de como usar a imagem (se for um logo)
+            // Se a imagem for um logo para o topo, você pode adicionar no HTML:
+            // <img src="{{ url_for('static', filename='image_ab17e0.jpg') }}" alt="Logo do Projeto" class="logo">
+            // E adicionar um estilo para .logo no CSS:
+            /*
+            .logo {
+                display: block;
+                max-width: 150px;
+                margin: 20px auto;
+                height: auto;
+            }
+            */
+        });
+    </script>
+</body>
+</html>

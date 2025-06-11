@@ -1,0 +1,232 @@
+/* --- GERAL E TEMA "CAMINHÃO" --- */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+:root {
+    --theme-yellow: #ffc107;
+    --theme-dark: #1a1a1a;
+    --theme-card: #2c2c2c;
+    --border-color: #444444;
+    --text-primary: #ffffff;
+    --text-secondary: #bbbbbb;
+    --font-family: 'Montserrat', sans-serif;
+}
+
+body {
+    background-color: var(--theme-dark);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 30px 30px;
+    font-family: var(--font-family);
+    color: var(--text-primary);
+}
+
+.app-container {
+    padding: 25px;
+}
+
+/* --- CABEÇALHO --- */
+.app-header {
+    background-color: var(--theme-card);
+    padding: 25px 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border-left: 6px solid var(--theme-yellow);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.app-header h1 {
+    font-weight: 700;
+    font-size: 2.2rem;
+}
+
+.app-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* --- PAINEL DE FILTROS --- */
+.filter-panel {
+    background-color: var(--theme-card);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid var(--border-color);
+}
+
+.DateInput_input, .DateInput_input_1 {
+    background-color: var(--theme-dark) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+}
+
+/* Estilo para dropdowns no tema escuro */
+.filter-panel .Select-control {
+    background-color: var(--theme-dark) !important;
+    border: 1px solid var(--border-color) !important;
+}
+.filter-panel .Select--multi .Select-value {
+    background-color: var(--theme-yellow);
+    color: var(--theme-dark);
+    font-weight: 600;
+}
+.filter-panel .Select-placeholder, .filter-panel .Select--single > .Select-control .Select-value {
+    color: var(--text-secondary) !important;
+}
+.filter-panel .Select .Select-arrow {
+    border-color: var(--theme-yellow) transparent transparent !important;
+}
+.Select-menu-outer {
+    background-color: #3a3a3a !important; /* Fundo escuro para a lista */
+    border: 1px solid var(--border-color) !important;
+}
+.Select-option {
+    background-color: #3a3a3a !important;
+    color: var(--text-primary) !important; /* Letras brancas para as opções */
+}
+.Select-option.is-focused {
+    background-color: var(--theme-yellow) !important; /* Destaque amarelo ao passar o mouse */
+    color: var(--theme-dark) !important;
+}
+
+.btn-primary {
+    background-color: var(--theme-yellow);
+    border-color: var(--theme-yellow);
+    color: var(--theme-dark);
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+.btn-primary:hover {
+    background-color: #ffffff;
+    border-color: #ffffff;
+    color: var(--theme-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(255, 193, 7, 0.3);
+}
+
+/* --- PAINEL DE KPIs --- */
+.kpi-card {
+    background-color: var(--theme-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    border-color: var(--theme-yellow);
+}
+
+.kpi-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.kpi-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-icon-container {
+    font-size: 2.5rem; /* Tamanho base do ícone */
+    color: var(--theme-yellow);
+    opacity: 0.3;
+    padding-left: 15px;
+}
+
+/* --- Ícones (usando unicode) --- */
+.kpi-icon::before {
+    font-family: "Times New Roman"; /* Uma fonte que suporte bem os símbolos */
+    font-weight: 900;
+}
+.weight-icon::before { content: "\2696"; } /* Escala */
+.money-icon::before { content: "$"; }
+.route-icon::before { content: "\21C4"; } /* Seta de duas direções */
+.truck-icon::before { content: "\1F69A"; } /* Emoji de caminhão */
+
+
+/* --- CARDS DOS GRÁFICOS E TABELAS --- */
+.card, .table-card {
+    background-color: var(--theme-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.table-title {
+    color: #ffffff;
+    margin-bottom: 20px;
+    font-weight: 600;
+    font-size: 1.3rem;
+    border-left: 4px solid var(--theme-yellow);
+    padding-left: 10px;
+}
+
+/* --- ESTILO DA TABELA MATRIZ --- */
+.dash-table-container .col-12 { padding: 0; }
+.dash-spreadsheet, .dash-spreadsheet-container {
+    background-color: transparent;
+    color: var(--text-primary);
+}
+.dash-spreadsheet-container table { border-collapse: collapse; }
+.dash-spreadsheet-container .dash-header {
+    background-color: var(--theme-dark);
+    color: #ffffff;
+    font-weight: bold;
+    text-align: left;
+    padding: 12px;
+    border-bottom: 2px solid var(--theme-yellow);
+}
+.dash-spreadsheet-container .dash-cell {
+    background-color: transparent;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: left;
+}
+.dash-spreadsheet-container .dash-cell.is-odd { background-color: transparent; }
+
+/* --- ESTILOS PARA AS ABAS --- */
+.custom-tabs {
+    border-bottom: 2px solid var(--border-color);
+    padding: 0;
+}
+.custom-tab {
+    background-color: var(--theme-card);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color) !important;
+    border-bottom: none !important;
+    padding: 12px 25px;
+    border-radius: 8px 8px 0 0;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin-right: 5px;
+}
+.custom-tab:hover {
+    color: #ffffff;
+    background-color: #3a3a3a;
+}
+.custom-tab--selected {
+    background-color: var(--theme-card);
+    color: #ffffff;
+    border-color: var(--border-color) !important;
+    border-top: 3px solid var(--theme-yellow) !important;
+    border-bottom: 1px solid var(--theme-card) !important; /* Esconde a borda inferior */
+}
+.tab-content {
+    background-color: transparent;
+    padding-top: 25px;
+}
