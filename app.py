@@ -9,8 +9,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from io import StringIO
-from serverless_wsgi import handle_request
-import sys
 import os
 
 # --- 1. FUNÇÕES AUXILIARES ---
@@ -30,7 +28,6 @@ def load_and_prepare_data():
     """
     Carrega os dados de 3 planilhas do Google Sheets.
     Realiza a limpeza, transformação e união dos dados em um único DataFrame.
-    Retorna None se houver qualquer erro no processo.
     """
     try:
         url_volume = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=0'
@@ -88,8 +85,11 @@ def load_and_prepare_data():
         return df_final
 
     except Exception as e:
-        print(f"Ocorreu um erro ao carregar os dados do Google Sheets: {e}")
-        return None
+        print(f"Ocorreu um erro CRÍTICO ao carregar os dados: {e}")
+        # Em um ambiente de produção, não conseguir carregar os dados é um erro fatal.
+        # Retornar um DataFrame vazio permite que o app suba, mas mostre "sem dados".
+        return pd.DataFrame()
+
 
 def create_matrix_data(dff):
     """Cria o DataFrame formatado para a tabela matriz com subtotais e totais gerais."""
@@ -173,42 +173,30 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
     )
     return fig
 
-# --- 2. INICIALIZAÇÃO DO APP DASH ---
+# --- 2. CARREGAMENTO INICIAL DOS DADOS ---
+# Carrega os dados quando o app inicia. Se falhar, o app vai travar e o log do Render mostrará o erro.
+# Isso é um comportamento esperado e mais fácil de depurar no Render.
+df = load_and_prepare_data()
+
+# --- 3. INICIALIZAÇÃO DO APP DASH ---
+# Para o Render, com app.py na raiz, o caminho para 'assets' é direto.
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='assets')
-server = app.server
+server = app.server # Expor o servidor Flask para o Gunicorn
 app.title = "Análise Operacional de Produção"
 
-# --- 3. LAYOUT DINÂMICO E ROBUSTO ---
-app.layout = html.Div(id='main-container', children=[
-    dcc.Store(id='full-data-store'),
-    dcc.Store(id='filtered-data-store'),
-    html.Div(id='page-content')
-])
+# --- 4. LAYOUT DO DASHBOARD ---
 
-@app.callback(
-    Output('page-content', 'children'),
-    Output('full-data-store', 'data'),
-    Input('main-container', 'id')
-)
-def generate_layout_after_data_load(_):
-    """
-    Tenta carregar os dados. Se bem-sucedido, gera o layout principal.
-    Se falhar, exibe uma mensagem de erro.
-    """
-    df_initial = load_and_prepare_data()
+# Se os dados não foram carregados, exibe uma mensagem de erro simples.
+if df.empty:
+    app.layout = dbc.Container(fluid=True, children=[
+        html.H1("Erro ao Carregar os Dados"),
+        html.P("Não foi possível carregar os dados da fonte (Google Sheets). Verifique os logs da aplicação no Render para mais detalhes.")
+    ])
+else:
+    # Se os dados carregaram, define o layout completo do dashboard.
+    app.layout = dbc.Container(fluid=True, className="app-container", children=[
+        dcc.Store(id='filtered-data-store'),
 
-    if df_initial is None or df_initial.empty:
-        error_layout = dbc.Container(fluid=True, children=[
-            html.H1("Erro ao Carregar os Dados"),
-            html.P("Não foi possível carregar os dados da fonte (Google Sheets). Por favor, verifique se a planilha está acessível e tente recarregar a página.")
-        ])
-        return error_layout, None
-
-    # CORREÇÃO do TypeError: Calcula min/max de forma segura usando a coluna 'Data_Hora'
-    min_date = df_initial['Data_Hora'].min().date()
-    max_date = df_initial['Data_Hora'].max().date()
-                
-    main_layout = dbc.Container(fluid=True, className="app-container", children=[
         html.Div(className="app-header", children=[
             html.H1("Performance da Frota"),
             html.P("Monitoramento e Análise de Operações de Transporte"),
@@ -218,23 +206,23 @@ def generate_layout_after_data_load(_):
             dbc.Row([
                 dbc.Col(dcc.DatePickerRange(
                     id='date-picker-range',
-                    min_date_allowed=min_date,
-                    max_date_allowed=max_date,
-                    start_date=min_date,
-                    end_date=max_date,
+                    min_date_allowed=df['Data_Hora'].min().date(),
+                    max_date_allowed=df['Data_Hora'].max().date(),
+                    start_date=df['Data_Hora'].min().date(),
+                    end_date=df['Data_Hora'].max().date(),
                     display_format='DD/MM/YYYY', className="date-picker-style"
                 ), width=12, lg=4, className="mb-3"),
                 dbc.Col(dcc.Dropdown(
                     id='empresa-dropdown', multi=True, placeholder='Filtrar por Empresa...',
-                    options=[{'label': i, 'value': i} for i in df_initial['Empresa'].dropna().unique()]
+                    options=[{'label': i, 'value': i} for i in df['Empresa'].dropna().unique()]
                 ), width=12, lg=2, className="mb-3"),
                 dbc.Col(dcc.Dropdown(
                     id='destino-dropdown', multi=True, placeholder='Filtrar por Destino...',
-                    options=[{'label': i, 'value': i} for i in df_initial['Destino'].dropna().unique()]
+                    options=[{'label': i, 'value': i} for i in df['Destino'].dropna().unique()]
                 ), width=12, lg=3, className="mb-3"),
                 dbc.Col(dcc.Dropdown(
                     id='material-dropdown', multi=True, placeholder='Filtrar por Material...',
-                    options=[{'label': i, 'value': i} for i in df_initial['Material'].dropna().unique()]
+                    options=[{'label': i, 'value': i} for i in df['Material'].dropna().unique()]
                 ), width=12, lg=3, className="mb-3"),
             ]),
             dbc.Row([
@@ -263,50 +251,38 @@ def generate_layout_after_data_load(_):
         ])
     ])
 
-    return main_layout, df_initial.to_json(date_format='iso', orient='split')
 
-# --- 4. CALLBACKS ---
+# --- 5. CALLBACKS ---
 
+# Otimização: Um único callback para filtrar os dados e armazená-los
 @app.callback(
     Output('filtered-data-store', 'data'),
-    Input('full-data-store', 'data'),
     Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'),
     Input('empresa-dropdown', 'value'), Input('destino-dropdown', 'value'),
     Input('material-dropdown', 'value'),
 )
-def update_filtered_data(full_data_json, start_date, end_date, empresas, destinos, materiais):
-    if not full_data_json:
-        raise dash.exceptions.PreventUpdate
-
-    dff = pd.read_json(StringIO(full_data_json), orient='split')
-    dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
-
+def update_filtered_data(start_date, end_date, empresas, destinos, materiais):
+    dff = df.copy()
     if start_date and end_date:
         dff = dff[(dff['Data_Apenas'] >= pd.to_datetime(start_date).date()) & (dff['Data_Apenas'] <= pd.to_datetime(end_date).date())]
     if empresas: dff = dff[dff['Empresa'].isin(empresas)]
     if destinos: dff = dff[dff['Destino'].isin(destinos)]
     if materiais: dff = dff[dff['Material'].isin(materiais)]
-    
     return dff.to_json(date_format='iso', orient='split')
 
+# Callback para limpar os filtros
 @app.callback(
     Output('date-picker-range', 'start_date'), Output('date-picker-range', 'end_date'),
     Output('empresa-dropdown', 'value'), Output('destino-dropdown', 'value'),
     Output('material-dropdown', 'value'),
-    Input('clear-filters-button', 'n_clicks'),
-    State('full-data-store', 'data')
+    Input('clear-filters-button', 'n_clicks')
 )
-def clear_all_filters(n_clicks, full_data_json):
-    if n_clicks is None or n_clicks == 0 or not full_data_json:
+def clear_all_filters(n_clicks):
+    if n_clicks is None or n_clicks == 0:
         raise dash.exceptions.PreventUpdate
-    
-    df_initial = pd.read_json(StringIO(full_data_json), orient='split')
-    # CORREÇÃO do TypeError: Usa a mesma lógica segura para restaurar as datas
-    min_date = pd.to_datetime(df_initial['Data_Hora']).min().date()
-    max_date = pd.to_datetime(df_initial['Data_Hora']).max().date()
+    return df['Data_Hora'].min().date(), df['Data_Hora'].max().date(), [], [], []
 
-    return min_date, max_date, [], [], []
-
+# Callback para os KPIs principais
 @app.callback(
     Output('kpi-volume-total', 'children'), Output('kpi-valor-total', 'children'),
     Output('kpi-n-viagens', 'children'), Output('kpi-frota-unica', 'children'),
@@ -314,9 +290,10 @@ def clear_all_filters(n_clicks, full_data_json):
 )
 def update_main_kpis(jsonified_data):
     if not jsonified_data:
-        return "-", "-", "-", "-"
+        dff = df.copy() # Usa o df completo se nenhum filtro foi aplicado ainda
+    else:
+        dff = pd.read_json(StringIO(jsonified_data), orient='split')
 
-    dff = pd.read_json(StringIO(jsonified_data), orient='split')
     if dff.empty:
         return "0", "R$ 0,00", "0", "0"
 
@@ -327,16 +304,22 @@ def update_main_kpis(jsonified_data):
     
     return kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str
 
+# Otimização: Callbacks separados para cada aba, que só rodam quando a aba está ativa
+
 @app.callback(
     Output('tab-content-graphs', 'children'),
     Input('filtered-data-store', 'data'),
     Input('tabs-main', 'value')
 )
 def render_graphs_tab(jsonified_data, active_tab):
-    if active_tab != 'tab-graphs' or not jsonified_data:
+    if active_tab != 'tab-graphs':
         raise dash.exceptions.PreventUpdate
 
-    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if not jsonified_data:
+        dff = df.copy()
+    else:
+        dff = pd.read_json(StringIO(jsonified_data), orient='split')
+
     if dff.empty:
         return html.P("Não há dados para os filtros selecionados.")
     
@@ -380,10 +363,14 @@ def render_graphs_tab(jsonified_data, active_tab):
     Input('tabs-main', 'value')
 )
 def render_matrix_tab(jsonified_data, active_tab):
-    if active_tab != 'tab-matrix' or not jsonified_data:
+    if active_tab != 'tab-matrix':
         raise dash.exceptions.PreventUpdate
 
-    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if not jsonified_data:
+        dff = df.copy()
+    else:
+        dff = pd.read_json(StringIO(jsonified_data), orient='split')
+
     if dff.empty:
         return html.P("Não há dados para os filtros selecionados.")
     
@@ -440,10 +427,14 @@ def render_matrix_tab(jsonified_data, active_tab):
     Input('tabs-main', 'value')
 )
 def render_efficiency_tab(jsonified_data, active_tab):
-    if active_tab != 'tab-efficiency' or not jsonified_data:
+    if active_tab != 'tab-efficiency':
         raise dash.exceptions.PreventUpdate
 
-    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if not jsonified_data:
+        dff = df.copy()
+    else:
+        dff = pd.read_json(StringIO(jsonified_data), orient='split')
+
     if dff.empty:
         return html.P("Não há dados para os filtros selecionados.")
     
@@ -511,12 +502,8 @@ def render_efficiency_tab(jsonified_data, active_tab):
         ]),
     ])
 
-
-# --- 5. Handler para Netlify Functions ---
-def handler(event, context):
-    """
-    Este é o ponto de entrada que o Netlify (AWS Lambda) chama.
-    A biblioteca serverless-wsgi traduz a requisição do formato do Lambda
-    para o formato que o servidor Flask (a base do Dash) entende.
-    """
-    return handle_request(server, event, context)
+# --- 6. Bloco de Execução para Ambiente Local ---
+# Este bloco só é executado quando você roda "python app.py" na sua máquina.
+# O Gunicorn no Render não executa esta parte.
+if __name__ == '__main__':
+    app.run(debug=True, port=8080)
