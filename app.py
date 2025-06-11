@@ -174,7 +174,7 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
     return fig
 
 # --- 2. INICIALIZAÇÃO DO APP DASH ---
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='../assets')
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='assets')
 server = app.server
 app.title = "Análise Operacional de Produção"
 
