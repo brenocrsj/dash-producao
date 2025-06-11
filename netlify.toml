@@ -1,38 +1,17 @@
-# netlify.toml - Configuração para o Netlify
-# Localização: Na raiz do seu repositório Dash-Produção
+# netlify.toml
 
 [build]
-  # Comando que será executado pelo Netlify para instalar as dependências.
-  # Isso é crucial para que 'pip install -r requirements.txt' seja executado.
   command = "pip install -r requirements.txt"
-  
-  # O diretório que o Netlify servirá como site estático.
-  # Para uma aplicação Dash via Netlify Functions, o frontend é servido pela própria função.
-  # No entanto, o Netlify espera que esta propriedade esteja definida.
-  # Se você tem um 'index.html' na pasta 'templates' que serve como ponto de entrada
-  # (e que o Dash pode usar), podemos apontar para lá.
-  # Alternativamente, se o Dash renderiza TUDO, e não há outros arquivos estáticos
-  # a serem servidos além do que a função gera, você pode apontar para uma pasta 'public'
-  # vazia ou para a própria raiz do repositório (`.`).
-  # Vamos usar "public" e garantir que, se necessário, você crie essa pasta (mesmo vazia)
-  # na raiz do seu projeto.
-  publish = "public" 
+  publish = "public"
 
 [functions]
-  # O diretório onde suas funções Netlify (Python) estão localizadas.
-  # Baseado na sua estrutura: Dash-Produção/netlify/app/app.py
-  # O 'directory' deve apontar para a pasta 'netlify'.
   directory = "netlify"
 
-# Define a versão do Python para o ambiente de build e para as funções.
-# É altamente recomendável que esta versão corresponda à que você usa localmente.
 [build.environment]
-  PYTHON_VERSION = "3.9" # Considere '3.10' ou '3.11' se sua versão local for mais recente.
+  PYTHON_VERSION = "3.9"
 
-# Regras de redirecionamento para rotear todas as requisições para sua função Dash.
-# Isso faz com que o Netlify chame sua função 'app' para qualquer URL acessada.
 [[redirects]]
-  from = "/*" # Corresponde a todas as requisições HTTP
-  to = "/.netlify/functions/app/:splat" # Redireciona para o endpoint da sua função 'app'
-  status = 200 # Faz o redirecionamento acontecer internamente no Netlify (não visível ao usuário)
-  force = true # Garante que esta regra tenha prioridade
+  from = "/*"
+  to = "/.netlify/functions/app/:splat"
+  status = 200
+  force = true
