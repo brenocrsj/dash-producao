@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+# --- 0. IMPORTAÇÕES ---
+# Importa as bibliotecas necessárias para o funcionamento do dashboard.
 import dash
 from dash import dcc, html, dash_table, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
@@ -6,25 +10,33 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from io import StringIO
+# Importa o handler para compatibilidade com o ambiente serverless (Netlify/AWS Lambda)
 from serverless_wsgi import handle_request
 import sys
 import os
 
 # --- 1. FUNÇÕES AUXILIARES ---
+# Funções reutilizáveis para limpar e preparar os dados.
+
 def clean_numeric_column(series):
-    """Converte uma coluna para numérico, tratando vírgulas e erros."""
+    """Converte uma coluna para numérico, tratando vírgulas como decimais e preenchendo erros com 0."""
     return pd.to_numeric(
         series.astype(str).str.replace(',', '.', regex=False),
         errors='coerce'
     ).fillna(0)
 
 def clean_text_column(series):
-    """Limpa e padroniza uma coluna de texto."""
+    """Limpa e padroniza uma coluna de texto, removendo espaços e convertendo para maiúsculas."""
     return series.astype(str).str.strip().str.upper()
 
 def load_and_prepare_data():
-    """Carrega, pré-processa e une os dados das abas do Google Sheets."""
+    """
+    Carrega os dados de 3 planilhas do Google Sheets.
+    Realiza a limpeza, transformação e união dos dados em um único DataFrame.
+    Retorna None se houver qualquer erro no processo.
+    """
     try:
+        # URLs para exportação direta das planilhas como CSV.
         url_volume = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=0'
         url_frota = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=1061355856'
         url_precificacao = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=998298177'
@@ -35,10 +47,12 @@ def load_and_prepare_data():
 
         print("Dados carregados do Google Sheets com sucesso!")
 
+        # Renomeia colunas para padronização
         df_volume.rename(columns={'Coluna1': 'TAG'}, inplace=True, errors='ignore')
         df_frota.rename(columns={'PLACA': 'Placa'}, inplace=True, errors='ignore')
         df_precificacao.rename(columns={'Frente': 'Destino'}, inplace=True, errors='ignore')
 
+        # Limpa colunas de texto importantes para os joins
         for col in ['Destino', 'Material', 'Placa', 'TAG']:
             if col in df_volume.columns:
                 df_volume[col] = clean_text_column(df_volume[col])
@@ -47,6 +61,7 @@ def load_and_prepare_data():
         if 'Destino' in df_precificacao.columns:
             df_precificacao['Destino'] = clean_text_column(df_precificacao['Destino'])
 
+        # Cria colunas de data e hora para análise temporal
         df_volume['Data_Hora'] = pd.to_datetime(
             df_volume['Data'].astype(str) + ' ' + df_volume['Hora'].astype(str),
             format='mixed', errors='coerce'
@@ -56,9 +71,11 @@ def load_and_prepare_data():
         df_volume['Hora_Do_Dia'] = df_volume['Data_Hora'].dt.hour
         df_volume['Volume'] = clean_numeric_column(df_volume['Volume'])
 
+        # Une os DataFrames para consolidar as informações
         df_merged = pd.merge(df_volume, df_frota, on='Placa', how='left')
         df_final = pd.merge(df_merged, df_precificacao, on='Destino', how='left')
 
+        # Limpa e padroniza colunas do DataFrame final
         for col in ['Valor Bruto', 'Volume Máx']:
             if col in df_final.columns:
                 df_final[col] = clean_numeric_column(df_final[col])
@@ -66,6 +83,7 @@ def load_and_prepare_data():
             if col in df_final.columns:
                 df_final[col] = clean_text_column(df_final[col])
 
+        # Calcula o faturamento e outras métricas
         if 'Volume' in df_final.columns and 'Valor Bruto' in df_final.columns:
             df_final['Valor Bruto Total'] = df_final['Volume'] * df_final['Valor Bruto']
         else:
@@ -80,6 +98,7 @@ def load_and_prepare_data():
         return df_final
 
     except Exception as e:
+        # Se qualquer parte do processo falhar, imprime o erro e retorna None
         print(f"Ocorreu um erro ao carregar os dados do Google Sheets: {e}")
         return None
 
@@ -150,6 +169,7 @@ def create_matrix_data(dff):
     return matrix_df
 
 def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequence=None):
+    """Cria uma figura Plotly (gráfico) a partir de um DataFrame."""
     fig = go.Figure()
     if fig_df.empty:
         fig.update_layout(title_text=f"{title}<br><sup>(Sem dados para o período)</sup>", title_x=0.5)
@@ -165,40 +185,53 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
     return fig
 
 # --- 2. INICIALIZAÇÃO DO APP DASH ---
-# CORREÇÃO: O assets_folder aponta para o diretório anterior ('../') onde a pasta 'assets' está.
+
+# CORREÇÃO CRÍTICA: O 'assets_folder' deve apontar para o caminho relativo correto.
+# Como app.py está em 'netlify/', a pasta 'assets/' está um nível acima ('../').
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='../assets')
 server = app.server
 app.title = "Análise Operacional de Produção"
 
 # --- 3. LAYOUT DINÂMICO E ROBUSTO ---
-# MELHORIA: Layout inicial de carregamento. O layout principal só é gerado se os dados carregarem.
+
+# MELHORIA: O layout inicial é apenas um container. O conteúdo real da página
+# será gerado por um callback APÓS a verificação de que os dados foram carregados com sucesso.
+# Isso evita que o app quebre se a conexão com o Google Sheets falhar.
 app.layout = html.Div(id='main-container', children=[
-    dcc.Store(id='full-data-store'),
-    dcc.Store(id='filtered-data-store'),
-    html.Div(id='page-content')
+    # dcc.Store armazena dados no navegador do cliente, evitando recarregamentos pesados.
+    dcc.Store(id='full-data-store'), # Armazenará o DataFrame completo e original.
+    dcc.Store(id='filtered-data-store'), # Armazenará os dados após aplicação dos filtros.
+    html.Div(id='page-content') # O conteúdo do dashboard será inserido aqui.
 ])
 
 @app.callback(
     Output('page-content', 'children'),
     Output('full-data-store', 'data'),
-    Input('main-container', 'id') # Callback acionado uma única vez
+    Input('main-container', 'id') # Este callback é acionado apenas uma vez, quando o app carrega.
 )
 def generate_layout_after_data_load(_):
+    """
+    Tenta carregar os dados. Se for bem-sucedido, gera o layout principal do dashboard.
+    Se falhar, exibe uma mensagem de erro amigável.
+    """
     df_initial = load_and_prepare_data()
 
     if df_initial is None or df_initial.empty:
+        # Se os dados não puderam ser carregados, exibe uma mensagem de erro.
         error_layout = dbc.Container(fluid=True, children=[
             html.H1("Erro ao Carregar os Dados"),
             html.P("Não foi possível carregar os dados da fonte (Google Sheets). Por favor, verifique se a planilha está acessível e tente recarregar a página.")
         ])
-        return error_layout, None
+        return error_layout, None # Retorna o layout de erro e nenhum dado para o dcc.Store.
 
+    # Se os dados foram carregados, constrói e retorna o layout completo.
     main_layout = dbc.Container(fluid=True, className="app-container", children=[
         html.Div(className="app-header", children=[
             html.H1("Performance da Frota"),
             html.P("Monitoramento e Análise de Operações de Transporte"),
         ]),
 
+        # Painel de filtros
         dbc.Card(className="filter-panel", body=True, children=[
             dbc.Row([
                 dbc.Col(dcc.DatePickerRange(
@@ -226,6 +259,7 @@ def generate_layout_after_data_load(_):
             ])
         ]),
 
+        # KPIs (Indicadores Chave de Performance) principais
         dbc.Row([
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-volume-total", className="kpi-value"), html.P("Volume Total (t)", className="kpi-title")])]), lg=3, md=6),
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-valor-total", className="kpi-value"), html.P("Faturamento Total (R$)", className="kpi-title")])]), lg=3, md=6),
@@ -233,24 +267,27 @@ def generate_layout_after_data_load(_):
             dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-frota-unica", className="kpi-value"), html.P("Veículos Únicos", className="kpi-title")])]), lg=3, md=6),
         ], className="g-4 mb-4"),
 
+        # Abas para organizar o conteúdo
         dcc.Tabs(id="tabs-main", value='tab-graphs', className="custom-tabs", children=[
             dcc.Tab(label='Dashboard Gráfico', value='tab-graphs', className="custom-tab", selected_className="custom-tab--selected", children=[
-                html.Div(id='tab-content-graphs', className="tab-content")
+                html.Div(id='tab-content-graphs', className="tab-content") # Conteúdo da aba 1
             ]),
             dcc.Tab(label='Análise Matricial', value='tab-matrix', className="custom-tab", selected_className="custom-tab--selected", children=[
-                html.Div(id='tab-content-matrix', className="tab-content")
+                html.Div(id='tab-content-matrix', className="tab-content") # Conteúdo da aba 2
             ]),
             dcc.Tab(label='Análise de Eficiência', value='tab-efficiency', className="custom-tab", selected_className="custom-tab--selected", children=[
-                html.Div(id='tab-content-efficiency', className="tab-content")
+                html.Div(id='tab-content-efficiency', className="tab-content") # Conteúdo da aba 3
             ]),
         ])
     ])
 
+    # Retorna o layout completo e os dados originais (convertidos para JSON) para o dcc.Store.
     return main_layout, df_initial.to_json(date_format='iso', orient='split')
 
 # --- 4. CALLBACKS ---
+# A interatividade do dashboard é definida aqui.
 
-# Callback para FILTRAR OS DADOS
+# Callback responsável por aplicar os filtros selecionados pelo usuário.
 @app.callback(
     Output('filtered-data-store', 'data'),
     Input('full-data-store', 'data'),
@@ -259,42 +296,49 @@ def generate_layout_after_data_load(_):
     Input('material-dropdown', 'value'),
 )
 def update_filtered_data(full_data_json, start_date, end_date, empresas, destinos, materiais):
+    """Filtra o DataFrame principal com base nas seleções e armazena o resultado em dcc.Store."""
     if not full_data_json:
         raise dash.exceptions.PreventUpdate
 
     dff = pd.read_json(StringIO(full_data_json), orient='split')
     dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
 
+    # Aplica os filtros sequencialmente
     if start_date and end_date:
         dff = dff[(dff['Data_Apenas'] >= pd.to_datetime(start_date).date()) & (dff['Data_Apenas'] <= pd.to_datetime(end_date).date())]
     if empresas: dff = dff[dff['Empresa'].isin(empresas)]
     if destinos: dff = dff[dff['Destino'].isin(destinos)]
     if materiais: dff = dff[dff['Material'].isin(materiais)]
+    
+    # Retorna os dados filtrados como JSON para o dcc.Store.
     return dff.to_json(date_format='iso', orient='split')
 
-# Callback para LIMPAR OS FILTROS
+# Callback para o botão "Limpar Todos os Filtros".
 @app.callback(
     Output('date-picker-range', 'start_date'), Output('date-picker-range', 'end_date'),
     Output('empresa-dropdown', 'value'), Output('destino-dropdown', 'value'),
     Output('material-dropdown', 'value'),
     Input('clear-filters-button', 'n_clicks'),
-    State('full-data-store', 'data')
+    State('full-data-store', 'data') # Pega os dados originais para restaurar as datas
 )
 def clear_all_filters(n_clicks, full_data_json):
+    """Restaura os filtros para seus valores iniciais."""
     if n_clicks is None or n_clicks == 0 or not full_data_json:
         raise dash.exceptions.PreventUpdate
     
     df_initial = pd.read_json(StringIO(full_data_json), orient='split')
     df_initial['Data_Apenas'] = pd.to_datetime(df_initial['Data_Apenas']).dt.date
+    # Retorna as datas mín/máx originais e listas vazias para os dropdowns.
     return df_initial['Data_Apenas'].min(), df_initial['Data_Apenas'].max(), [], [], []
 
-# Callback para os KPIs PRINCIPAIS (sempre visíveis)
+# Callback para atualizar os KPIs principais, que estão sempre visíveis.
 @app.callback(
     Output('kpi-volume-total', 'children'), Output('kpi-valor-total', 'children'),
     Output('kpi-n-viagens', 'children'), Output('kpi-frota-unica', 'children'),
     Input('filtered-data-store', 'data')
 )
 def update_main_kpis(jsonified_data):
+    """Atualiza os 4 cartões de KPI principais com base nos dados filtrados."""
     if not jsonified_data:
         return "-", "-", "-", "-"
 
@@ -309,13 +353,15 @@ def update_main_kpis(jsonified_data):
     
     return kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str
 
-# MELHORIA: Callback para a ABA 1 (Dashboard Gráfico)
+# MELHORIA DE PERFORMANCE: Callback dedicado para a Aba 1 (Dashboard Gráfico)
 @app.callback(
     Output('tab-content-graphs', 'children'),
     Input('filtered-data-store', 'data'),
-    Input('tabs-main', 'value')
+    Input('tabs-main', 'value') # Adicionamos a aba ativa como Input
 )
 def render_graphs_tab(jsonified_data, active_tab):
+    """Gera o conteúdo da aba de gráficos somente quando ela está ativa."""
+    # Este if é a chave da otimização: o código só executa se a aba correta estiver selecionada.
     if active_tab != 'tab-graphs' or not jsonified_data:
         raise dash.exceptions.PreventUpdate
 
@@ -326,6 +372,7 @@ def render_graphs_tab(jsonified_data, active_tab):
     dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
     dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
     
+    # Criação das figuras para esta aba
     fig_diario = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date)['Volume'].sum().reset_index(), 'line', 'Data_Hora', 'Volume', 'Volume Transportado por Dia')
     fig_viagens_dia = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date).size().reset_index(name='Contagem'), 'line', 'Data_Hora', 'Contagem', 'Viagens por Dia', color_sequence=['#87CEEB'])
     fig_destino = create_figure_from_df(dff.groupby('Destino')['Volume'].sum().nlargest(15).reset_index(), 'bar', 'Destino', 'Volume', 'Top 15 Destinos por Volume')
@@ -340,6 +387,7 @@ def render_graphs_tab(jsonified_data, active_tab):
     fig_volume_hourly_distribution = create_figure_from_df(dff.groupby('Hora_Do_Dia')['Volume'].sum().reset_index(), 'bar', 'Hora_Do_Dia', 'Volume', 'Volume por Hora do Dia', color_sequence=['#004C97'])
     fig_volume_hourly_distribution.update_xaxes(tickmode='linear', dtick=1, title_text="Hora do Dia")
 
+    # Retorna o layout da aba
     return html.Div([
         dbc.Row([dbc.Col(dbc.Card(dcc.Graph(figure=fig_diario)), width=12)], className="g-4 mb-4 mt-2"),
         dbc.Row([dbc.Col(dbc.Card(dcc.Graph(figure=fig_viagens_dia)), width=12)], className="g-4 mb-4"),
@@ -357,13 +405,14 @@ def render_graphs_tab(jsonified_data, active_tab):
         ], className="g-4 mb-4"),
     ])
 
-# MELHORIA: Callback para a ABA 2 (Análise Matricial)
+# MELHORIA DE PERFORMANCE: Callback dedicado para a Aba 2 (Análise Matricial)
 @app.callback(
     Output('tab-content-matrix', 'children'),
     Input('filtered-data-store', 'data'),
     Input('tabs-main', 'value')
 )
 def render_matrix_tab(jsonified_data, active_tab):
+    """Gera o conteúdo da aba de análise matricial somente quando ela está ativa."""
     if active_tab != 'tab-matrix' or not jsonified_data:
         raise dash.exceptions.PreventUpdate
 
@@ -382,6 +431,7 @@ def render_matrix_tab(jsonified_data, active_tab):
     else:
         fig_matrix_top_tags = empty_fig
 
+    # Formatação dos números na tabela
     for col in ['Volume Total', 'Volume Mín', 'Volume Médio', 'Volume Máximo', 'Viagens Média']:
         if col in matrix_df.columns:
             matrix_df[col] = matrix_df[col].apply(lambda x: f'{x:,.2f}' if pd.notnull(x) and x != '' else '')
@@ -418,13 +468,14 @@ def render_matrix_tab(jsonified_data, active_tab):
         ], className="g-4 mb-4"),
     ])
 
-# MELHORIA: Callback para a ABA 3 (Análise de Eficiência)
+# MELHORIA DE PERFORMANCE: Callback dedicado para a Aba 3 (Análise de Eficiência)
 @app.callback(
     Output('tab-content-efficiency', 'children'),
     Input('filtered-data-store', 'data'),
     Input('tabs-main', 'value')
 )
 def render_efficiency_tab(jsonified_data, active_tab):
+    """Gera o conteúdo da aba de eficiência somente quando ela está ativa."""
     if active_tab != 'tab-efficiency' or not jsonified_data:
         raise dash.exceptions.PreventUpdate
 
@@ -499,4 +550,9 @@ def render_efficiency_tab(jsonified_data, active_tab):
 
 # --- 5. Handler para Netlify Functions ---
 def handler(event, context):
+    """
+    Este é o ponto de entrada que o Netlify (AWS Lambda) chama.
+    A biblioteca serverless-wsgi traduz a requisição do formato do Lambda
+    para o formato que o servidor Flask (a base do Dash) entende.
+    """
     return handle_request(server, event, context)
