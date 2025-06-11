@@ -6,22 +6,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from io import StringIO
-
-# Importe o handler de serverless_wsgi
 from serverless_wsgi import handle_request
 import sys
 import os
-
-# Adicione este caminho para que o Python encontre o resto dos seus arquivos
-# Isso é crucial para que ele encontre 'assets' e 'templates'
-# E para os CSVs, você precisará ajustar o caminho se eles não estiverem na raiz
-# do diretório da função.
-# Exemplo: Se os CSVs estiverem na raiz do seu repositório,
-# a função precisa saber onde procurá-los.
-# Em produção, o ideal é carregar os dados de um banco de dados ou serviço de armazenamento.
-# Por enquanto, se os CSVs estão na raiz do projeto, a função precisará de um path absoluto.
-# Para simplificar, vou ajustar o load_and_prepare_data para carregar do Google Sheets diretamente.
-# (Que você já faz, o que é ótimo!)
 
 # --- 1. FUNÇÕES AUXILIARES ---
 def clean_numeric_column(series):
@@ -162,208 +149,6 @@ def create_matrix_data(dff):
 
     return matrix_df
 
-# --- 2. CARREGAMENTO INICIAL DOS DADOS ---
-# Este carregamento agora acontece dentro do contexto da função handler
-# para que seja refeito a cada invocação se necessário, ou otimizado.
-# Para o Dash rodando como serverless, o df precisa ser carregado por sessão/invocação.
-# Vamos mover a inicialização do df para dentro do handler, ou usar dcc.Store.
-# Como você já usa dcc.Store, o df inicial pode ser global e o dcc.Store cuida dos filtros.
-df = load_and_prepare_data()
-if df is None or df.empty:
-    print("FALHA AO CARREGAR DADOS. O dashboard pode não funcionar.")
-    # É importante não usar exit() em uma função lambda.
-    # Você pode retornar um erro HTTP ou um layout de erro.
-
-# --- 3. INICIALIZAÇÃO DO APP DASH ---
-# O assets_folder deve ser relativo ao diretório da função,
-# ou o Netlify deve ter acesso a ele no publish directory.
-# Se 'assets' está na raiz do seu repositório, e sua função está em netlify/app,
-# então o caminho relativo da função para 'assets' será '../assets'.
-# MAS, se o 'publish' do netlify.toml for "public" ou "templates",
-# os assets precisarão ser acessíveis através do caminho do servidor.
-# Para Dash em Netlify Functions, o assets_folder precisa estar no mesmo local
-# da função ou ser tratado por um path reescrever no Netlify.
-# A melhor prática é colocar 'assets' e 'templates' no diretório da função
-# ou usar o `publish` do `netlify.toml` e configurar a reescrita de URL.
-# POR ENQUANTO, vamos assumir que 'assets' estará na raiz do deploy.
-# A configuração do `netlify.toml` `publish = "templates"` sugere que a pasta 'templates'
-# é o diretório raiz do site estático. Se o `assets` estiver lá, beleza.
-# Se não, teremos que ajustar.
-
-# **Ajuste Importante para `assets_folder`:**
-# Se sua pasta `assets` está na raiz do seu repositório (ao lado de `app.py` original),
-# e você moveu `app.py` para `netlify/app/app.py`, então o `assets_folder` na instância do Dash
-# precisa apontar para o caminho correto para que a função o encontre.
-# Uma forma comum é copiar os assets para dentro do diretório da função ou para um diretório que
-# a função saiba onde está.
-# A forma mais robusta é usar o `server.static_folder` e `server.static_url_path`.
-# Vamos simplificar e assumir que o Netlify Functions pode "ver" a pasta `assets` na raiz do deploy.
-# ou que você a moverá para `netlify/app/assets`.
-# Se 'assets' está na raiz do *seu projeto GIT*, e o Netlify copia isso para o ambiente de build,
-# e a função está em `netlify/app`, então `assets_folder` pode ser um problema.
-
-# Para Netlify Functions, o servidor WSGI (Flask/Dash) deve ser o `app.server` exposto para `serverless_wsgi`.
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='assets')
-server = app.server # Expor o servidor para o Gunicorn/serverless_wsgi
-app.title = "Análise Operacional de Produção"
-
-# --- 4. LAYOUT DO DASHBOARD ---
-app.layout = dbc.Container(fluid=True, className="app-container", children=[
-    dcc.Store(id='filtered-data-store'),
-
-    html.Div(className="app-header", children=[
-        html.H1("Performance da Frota"),
-        html.P("Monitoramento e Análise de Operações de Transporte"),
-    ]),
-
-    dbc.Card(className="filter-panel", body=True, children=[
-        dbc.Row([
-            dbc.Col(dcc.DatePickerRange(
-                id='date-picker-range',
-                min_date_allowed=df['Data_Apenas'].min(), max_date_allowed=df['Data_Apenas'].max(),
-                start_date=df['Data_Apenas'].min(), end_date=df['Data_Apenas'].max(),
-                display_format='DD/MM/YYYY', className="date-picker-style"
-            ), width=12, lg=4, className="mb-3"),
-            dbc.Col(dcc.Dropdown(
-                id='empresa-dropdown', multi=True, placeholder='Filtrar por Empresa...',
-                options=[{'label': i, 'value': i} for i in df['Empresa'].dropna().unique()]
-            ), width=12, lg=2, className="mb-3"),
-            dbc.Col(dcc.Dropdown(
-                id='destino-dropdown', multi=True, placeholder='Filtrar por Destino...',
-                options=[{'label': i, 'value': i} for i in df['Destino'].dropna().unique()]
-            ), width=12, lg=3, className="mb-3"),
-            dbc.Col(dcc.Dropdown(
-                id='material-dropdown', multi=True, placeholder='Filtrar por Material...',
-                options=[{'label': i, 'value': i} for i in df['Material'].dropna().unique()]
-            ), width=12, lg=3, className="mb-3"),
-        ]),
-        dbc.Row([
-            dbc.Col(dbc.Button("Limpar Todos os Filtros", id='clear-filters-button', color="primary", className="w-100"), 
-                        width=12)
-        ])
-    ]),
-
-    dbc.Row([
-        dbc.Col(dbc.Card(className="kpi-card", children=[
-            html.Div(className="kpi-content", children=[
-                html.H2(id="kpi-volume-total", className="kpi-value"), html.P("Volume Total (t)", className="kpi-title")
-            ]),
-        ]), lg=3, md=6),
-        dbc.Col(dbc.Card(className="kpi-card", children=[
-            html.Div(className="kpi-content", children=[
-                html.H2(id="kpi-valor-total", className="kpi-value"), html.P("Faturamento Total (R$)", className="kpi-title")
-            ]),
-        ]), lg=3, md=6),
-        dbc.Col(dbc.Card(className="kpi-card", children=[
-            html.Div(className="kpi-content", children=[
-                html.H2(id="kpi-n-viagens", className="kpi-value"), html.P("Nº de Viagens", className="kpi-title")
-            ]),
-        ]), lg=3, md=6),
-        dbc.Col(dbc.Card(className="kpi-card", children=[
-            html.Div(className="kpi-content", children=[
-                html.H2(id="kpi-frota-unica", className="kpi-value"), html.P("Veículos Únicos", className="kpi-title")
-            ]),
-        ]), lg=3, md=6),
-    ], className="g-4 mb-4"),
-
-    dcc.Tabs(id="tabs-main", value='tab-graphs', className="custom-tabs", children=[
-        dcc.Tab(label='Dashboard Gráfico', value='tab-graphs', className="custom-tab", selected_className="custom-tab--selected", children=[
-            html.Div(className="tab-content", children=[
-                dbc.Row([dbc.Col(dbc.Card(dcc.Graph(id='grafico-volume-diario')), width=12)], className="g-4 mb-4 mt-2"),
-                dbc.Row([dbc.Col(dbc.Card(dcc.Graph(id='grafico-viagens-dia')), width=12)], className="g-4 mb-4"),
-                dbc.Row([
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-volume-destino')), lg=6, md=12),
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-valor-bruto-empresa')), lg=6, md=12),
-                ], className="g-4 mb-4"),
-                dbc.Row([
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-volume-material')), lg=6, md=12),
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-viagens-tag')), lg=6, md=12),
-                ], className="g-4 mb-4"),
-                dbc.Row([
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-volume-hourly-distribution')), lg=6, md=12),
-                    dbc.Col(dbc.Card(dcc.Graph(id='grafico-anual-comparison')), lg=6, md=12),
-                ], className="g-4 mb-4"),
-            ])
-        ]),
-        dcc.Tab(label='Análise Matricial', value='tab-matrix', className="custom-tab", selected_className="custom-tab--selected", children=[
-            html.Div(className="tab-content", children=[
-                dbc.Row([
-                    dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-matrix-dias", className="kpi-value"), html.P("Dias na Análise", className="kpi-title")])]), lg=4, md=6),
-                    dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-matrix-tags", className="kpi-value"), html.P("TAGs Únicas", className="kpi-title")])]), lg=4, md=6),
-                    dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-matrix-viagens", className="kpi-value"), html.P("Total de Viagens", className="kpi-title")])]), lg=4, md=12),
-                ], className="g-4 mb-4 mt-2"),
-                dbc.Row([
-                    dbc.Col(dbc.Card(className="table-card", children=[
-                        html.H4("Matriz de Desempenho Diário por TAG", className="table-title"),
-                        dash_table.DataTable(
-                            id='matrix-table', page_size=20, style_table={'overflowX': 'auto', 'minHeight': '50vh'},
-                            fixed_rows={'headers': True}, style_header={'backgroundColor': '#2E3134', 'color': 'white', 'fontWeight': 'bold'},
-                            style_data={'backgroundColor': '#383b3e', 'color': 'white'},
-                            style_data_conditional=[
-                                {'if': {'filter_query': '{TAG} = "--- TOTAL DIA ---"'}, 'backgroundColor': '#4a4e52', 'fontWeight': 'bold'},
-                                {'if': {'filter_query': '{TAG} = "--- GRANDE TOTAL ---"'}, 'backgroundColor': '#004C97', 'fontWeight': 'bold', 'color': '#FFD700'},
-                            ]
-                        )
-                    ]), lg=8),
-                    dbc.Col(dbc.Card(dcc.Graph(id='chart-matrix-top-tags')), lg=4),
-                ], className="g-4 mb-4"),
-            ])
-        ]),
-        dcc.Tab(label='Análise de Eficiência', value='tab-efficiency', className="custom-tab", selected_className="custom-tab--selected", children=[
-            html.Div(className="tab-content", children=[
-                dbc.Row([
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-utilization-gauge')), lg=4, md=12, className="mb-4"),
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-shift-performance')), lg=4, md=6, className="mb-4"),
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-weekday-performance')), lg=4, md=6, className="mb-4"),
-                ], className="mt-2"),
-                dbc.Row([
-                    dbc.Col(dbc.Card(className="table-card", children=[
-                        html.H4("Ranking de Eficiência da Frota", className="table-title"),
-                        dash_table.DataTable(
-                            id='efficiency-ranking-table', page_size=10, style_table={'overflowX': 'auto'},
-                            fixed_rows={'headers': True}, style_header={'backgroundColor': '#2E3134', 'color': 'white', 'fontWeight': 'bold'},
-                            style_data={'backgroundColor': '#383b3e', 'color': 'white'},
-                        )
-                    ]), lg=6, md=12, className="mb-4"),
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-load-efficiency')), lg=6, md=12, className="mb-4"),
-                ]),
-                    dbc.Row([
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-time-between-trips')), lg=6, md=12, className="mb-4"),
-                    dbc.Col(dbc.Card(dcc.Graph(id='graph-profitability-analysis')), lg=6, md=12, className="mb-4"),
-                ]),
-            ])
-        ]),
-    ])
-])
-
-
-# --- 5. CALLBACKS ---
-@app.callback(
-    Output('filtered-data-store', 'data'),
-    Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'),
-    Input('empresa-dropdown', 'value'), Input('destino-dropdown', 'value'),
-    Input('material-dropdown', 'value'),
-)
-def update_filtered_data(start_date, end_date, empresas, destinos, materiais):
-    dff = df.copy()
-    if start_date and end_date:
-        dff = dff[(dff['Data_Apenas'] >= pd.to_datetime(start_date).date()) & (dff['Data_Apenas'] <= pd.to_datetime(end_date).date())]
-    if empresas: dff = dff[dff['Empresa'].isin(empresas)]
-    if destinos: dff = dff[dff['Destino'].isin(destinos)]
-    if materiais: dff = dff[dff['Material'].isin(materiais)]
-    return dff.to_json(date_format='iso', orient='split')
-
-@app.callback(
-    Output('date-picker-range', 'start_date'), Output('date-picker-range', 'end_date'),
-    Output('empresa-dropdown', 'value'), Output('destino-dropdown', 'value'),
-    Output('material-dropdown', 'value'),
-    Input('clear-filters-button', 'n_clicks')
-)
-def clear_all_filters(n_clicks):
-    if n_clicks is None or n_clicks == 0:
-        raise dash.exceptions.PreventUpdate
-    return df['Data_Apenas'].min(), df['Data_Apenas'].max(), [], [], []
-
 def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequence=None):
     fig = go.Figure()
     if fig_df.empty:
@@ -379,51 +164,168 @@ def create_figure_from_df(fig_df, chart_type, x_col, y_col, title, color_sequenc
     )
     return fig
 
+# --- 2. INICIALIZAÇÃO DO APP DASH ---
+# CORREÇÃO: O assets_folder aponta para o diretório anterior ('../') onde a pasta 'assets' está.
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], assets_folder='../assets')
+server = app.server
+app.title = "Análise Operacional de Produção"
+
+# --- 3. LAYOUT DINÂMICO E ROBUSTO ---
+# MELHORIA: Layout inicial de carregamento. O layout principal só é gerado se os dados carregarem.
+app.layout = html.Div(id='main-container', children=[
+    dcc.Store(id='full-data-store'),
+    dcc.Store(id='filtered-data-store'),
+    html.Div(id='page-content')
+])
+
+@app.callback(
+    Output('page-content', 'children'),
+    Output('full-data-store', 'data'),
+    Input('main-container', 'id') # Callback acionado uma única vez
+)
+def generate_layout_after_data_load(_):
+    df_initial = load_and_prepare_data()
+
+    if df_initial is None or df_initial.empty:
+        error_layout = dbc.Container(fluid=True, children=[
+            html.H1("Erro ao Carregar os Dados"),
+            html.P("Não foi possível carregar os dados da fonte (Google Sheets). Por favor, verifique se a planilha está acessível e tente recarregar a página.")
+        ])
+        return error_layout, None
+
+    main_layout = dbc.Container(fluid=True, className="app-container", children=[
+        html.Div(className="app-header", children=[
+            html.H1("Performance da Frota"),
+            html.P("Monitoramento e Análise de Operações de Transporte"),
+        ]),
+
+        dbc.Card(className="filter-panel", body=True, children=[
+            dbc.Row([
+                dbc.Col(dcc.DatePickerRange(
+                    id='date-picker-range',
+                    min_date_allowed=df_initial['Data_Apenas'].min(), max_date_allowed=df_initial['Data_Apenas'].max(),
+                    start_date=df_initial['Data_Apenas'].min(), end_date=df_initial['Data_Apenas'].max(),
+                    display_format='DD/MM/YYYY', className="date-picker-style"
+                ), width=12, lg=4, className="mb-3"),
+                dbc.Col(dcc.Dropdown(
+                    id='empresa-dropdown', multi=True, placeholder='Filtrar por Empresa...',
+                    options=[{'label': i, 'value': i} for i in df_initial['Empresa'].dropna().unique()]
+                ), width=12, lg=2, className="mb-3"),
+                dbc.Col(dcc.Dropdown(
+                    id='destino-dropdown', multi=True, placeholder='Filtrar por Destino...',
+                    options=[{'label': i, 'value': i} for i in df_initial['Destino'].dropna().unique()]
+                ), width=12, lg=3, className="mb-3"),
+                dbc.Col(dcc.Dropdown(
+                    id='material-dropdown', multi=True, placeholder='Filtrar por Material...',
+                    options=[{'label': i, 'value': i} for i in df_initial['Material'].dropna().unique()]
+                ), width=12, lg=3, className="mb-3"),
+            ]),
+            dbc.Row([
+                dbc.Col(dbc.Button("Limpar Todos os Filtros", id='clear-filters-button', color="primary", className="w-100"), 
+                            width=12)
+            ])
+        ]),
+
+        dbc.Row([
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-volume-total", className="kpi-value"), html.P("Volume Total (t)", className="kpi-title")])]), lg=3, md=6),
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-valor-total", className="kpi-value"), html.P("Faturamento Total (R$)", className="kpi-title")])]), lg=3, md=6),
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-n-viagens", className="kpi-value"), html.P("Nº de Viagens", className="kpi-title")])]), lg=3, md=6),
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(id="kpi-frota-unica", className="kpi-value"), html.P("Veículos Únicos", className="kpi-title")])]), lg=3, md=6),
+        ], className="g-4 mb-4"),
+
+        dcc.Tabs(id="tabs-main", value='tab-graphs', className="custom-tabs", children=[
+            dcc.Tab(label='Dashboard Gráfico', value='tab-graphs', className="custom-tab", selected_className="custom-tab--selected", children=[
+                html.Div(id='tab-content-graphs', className="tab-content")
+            ]),
+            dcc.Tab(label='Análise Matricial', value='tab-matrix', className="custom-tab", selected_className="custom-tab--selected", children=[
+                html.Div(id='tab-content-matrix', className="tab-content")
+            ]),
+            dcc.Tab(label='Análise de Eficiência', value='tab-efficiency', className="custom-tab", selected_className="custom-tab--selected", children=[
+                html.Div(id='tab-content-efficiency', className="tab-content")
+            ]),
+        ])
+    ])
+
+    return main_layout, df_initial.to_json(date_format='iso', orient='split')
+
+# --- 4. CALLBACKS ---
+
+# Callback para FILTRAR OS DADOS
+@app.callback(
+    Output('filtered-data-store', 'data'),
+    Input('full-data-store', 'data'),
+    Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'),
+    Input('empresa-dropdown', 'value'), Input('destino-dropdown', 'value'),
+    Input('material-dropdown', 'value'),
+)
+def update_filtered_data(full_data_json, start_date, end_date, empresas, destinos, materiais):
+    if not full_data_json:
+        raise dash.exceptions.PreventUpdate
+
+    dff = pd.read_json(StringIO(full_data_json), orient='split')
+    dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
+
+    if start_date and end_date:
+        dff = dff[(dff['Data_Apenas'] >= pd.to_datetime(start_date).date()) & (dff['Data_Apenas'] <= pd.to_datetime(end_date).date())]
+    if empresas: dff = dff[dff['Empresa'].isin(empresas)]
+    if destinos: dff = dff[dff['Destino'].isin(destinos)]
+    if materiais: dff = dff[dff['Material'].isin(materiais)]
+    return dff.to_json(date_format='iso', orient='split')
+
+# Callback para LIMPAR OS FILTROS
+@app.callback(
+    Output('date-picker-range', 'start_date'), Output('date-picker-range', 'end_date'),
+    Output('empresa-dropdown', 'value'), Output('destino-dropdown', 'value'),
+    Output('material-dropdown', 'value'),
+    Input('clear-filters-button', 'n_clicks'),
+    State('full-data-store', 'data')
+)
+def clear_all_filters(n_clicks, full_data_json):
+    if n_clicks is None or n_clicks == 0 or not full_data_json:
+        raise dash.exceptions.PreventUpdate
+    
+    df_initial = pd.read_json(StringIO(full_data_json), orient='split')
+    df_initial['Data_Apenas'] = pd.to_datetime(df_initial['Data_Apenas']).dt.date
+    return df_initial['Data_Apenas'].min(), df_initial['Data_Apenas'].max(), [], [], []
+
+# Callback para os KPIs PRINCIPAIS (sempre visíveis)
 @app.callback(
     Output('kpi-volume-total', 'children'), Output('kpi-valor-total', 'children'),
     Output('kpi-n-viagens', 'children'), Output('kpi-frota-unica', 'children'),
-    Output('grafico-volume-diario', 'figure'), Output('grafico-viagens-dia', 'figure'),
-    Output('grafico-volume-destino', 'figure'), Output('grafico-valor-bruto-empresa', 'figure'),
-    Output('grafico-volume-material', 'figure'), Output('grafico-viagens-tag', 'figure'),
-    Output('grafico-anual-comparison', 'figure'), Output('grafico-volume-hourly-distribution', 'figure'),
-    Output('matrix-table', 'data'), Output('matrix-table', 'columns'),
-    Output('kpi-matrix-dias', 'children'), Output('kpi-matrix-tags', 'children'),
-    Output('kpi-matrix-viagens', 'children'), Output('chart-matrix-top-tags', 'figure'),
-    Output('graph-shift-performance', 'figure'), Output('graph-weekday-performance', 'figure'),
-    Output('efficiency-ranking-table', 'data'), Output('efficiency-ranking-table', 'columns'),
-    Output('graph-load-efficiency', 'figure'),
-    Output('graph-utilization-gauge', 'figure'),
-    Output('graph-time-between-trips', 'figure'),
-    Output('graph-profitability-analysis', 'figure'),
     Input('filtered-data-store', 'data')
 )
-def update_visuals_and_kpis(jsonified_data):
-    empty_fig = go.Figure().update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                                            title_text="Sem dados", title_x=0.5, font_color='#bbbbbb', height=300)
-
-    def return_empty():
-        kpis = ["-"] * 4
-        graphs_tab1 = [empty_fig] * 8
-        matrix_items = [[], [], "-", "-", "-", empty_fig]
-        efficiency_items = [empty_fig, empty_fig, [], [], empty_fig]
-        new_efficiency_items = [empty_fig] * 3
-        return tuple(kpis + graphs_tab1 + matrix_items + efficiency_items + new_efficiency_items)
-
+def update_main_kpis(jsonified_data):
     if not jsonified_data:
-        return return_empty()
+        return "-", "-", "-", "-"
 
     dff = pd.read_json(StringIO(jsonified_data), orient='split')
     if dff.empty:
-        return return_empty()
-
-    dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
-    dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
+        return "0", "R$ 0,00", "0", "0"
 
     kpi_volume_str = f"{dff['Volume'].sum():,.0f}"
     kpi_valor_str = f"R$ {dff['Valor Bruto Total'].sum():,.2f}"
     kpi_viagens_str = f"{len(dff):,}"
     kpi_frota_str = str(dff['TAG'].nunique())
+    
+    return kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str
 
+# MELHORIA: Callback para a ABA 1 (Dashboard Gráfico)
+@app.callback(
+    Output('tab-content-graphs', 'children'),
+    Input('filtered-data-store', 'data'),
+    Input('tabs-main', 'value')
+)
+def render_graphs_tab(jsonified_data, active_tab):
+    if active_tab != 'tab-graphs' or not jsonified_data:
+        raise dash.exceptions.PreventUpdate
+
+    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if dff.empty:
+        return html.P("Não há dados para os filtros selecionados.")
+    
+    dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
+    dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
+    
     fig_diario = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date)['Volume'].sum().reset_index(), 'line', 'Data_Hora', 'Volume', 'Volume Transportado por Dia')
     fig_viagens_dia = create_figure_from_df(dff.groupby(dff['Data_Hora'].dt.date).size().reset_index(name='Contagem'), 'line', 'Data_Hora', 'Contagem', 'Viagens por Dia', color_sequence=['#87CEEB'])
     fig_destino = create_figure_from_df(dff.groupby('Destino')['Volume'].sum().nlargest(15).reset_index(), 'bar', 'Destino', 'Volume', 'Top 15 Destinos por Volume')
@@ -438,8 +340,40 @@ def update_visuals_and_kpis(jsonified_data):
     fig_volume_hourly_distribution = create_figure_from_df(dff.groupby('Hora_Do_Dia')['Volume'].sum().reset_index(), 'bar', 'Hora_Do_Dia', 'Volume', 'Volume por Hora do Dia', color_sequence=['#004C97'])
     fig_volume_hourly_distribution.update_xaxes(tickmode='linear', dtick=1, title_text="Hora do Dia")
 
-    matrix_df = create_matrix_data(dff.copy())
+    return html.Div([
+        dbc.Row([dbc.Col(dbc.Card(dcc.Graph(figure=fig_diario)), width=12)], className="g-4 mb-4 mt-2"),
+        dbc.Row([dbc.Col(dbc.Card(dcc.Graph(figure=fig_viagens_dia)), width=12)], className="g-4 mb-4"),
+        dbc.Row([
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_destino)), lg=6, md=12),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_valor_bruto)), lg=6, md=12),
+        ], className="g-4 mb-4"),
+        dbc.Row([
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_material)), lg=6, md=12),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_viagens_tag)), lg=6, md=12),
+        ], className="g-4 mb-4"),
+        dbc.Row([
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_volume_hourly_distribution)), lg=6, md=12),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_anual_comparison)), lg=6, md=12),
+        ], className="g-4 mb-4"),
+    ])
 
+# MELHORIA: Callback para a ABA 2 (Análise Matricial)
+@app.callback(
+    Output('tab-content-matrix', 'children'),
+    Input('filtered-data-store', 'data'),
+    Input('tabs-main', 'value')
+)
+def render_matrix_tab(jsonified_data, active_tab):
+    if active_tab != 'tab-matrix' or not jsonified_data:
+        raise dash.exceptions.PreventUpdate
+
+    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if dff.empty:
+        return html.P("Não há dados para os filtros selecionados.")
+    
+    matrix_df = create_matrix_data(dff.copy())
+    
+    empty_fig = go.Figure().update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', title_text="Sem dados", title_x=0.5, font_color='#bbbbbb', height=300)
     matrix_detail_df = matrix_df[~matrix_df['TAG'].str.contains("---")].copy()
     if not matrix_detail_df.empty:
         matrix_detail_df['Nº Viagens'] = pd.to_numeric(matrix_detail_df['Nº Viagens'], errors='coerce')
@@ -457,7 +391,49 @@ def update_visuals_and_kpis(jsonified_data):
 
     cols_table = [{"name": i, "id": i} for i in matrix_df.columns]
     data_table = matrix_df.to_dict('records')
-    kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str = str(matrix_df[matrix_df['TAG'] == '--- TOTAL DIA ---'].shape[0]), str(dff['TAG'].nunique()), f"{dff.shape[0]:,}"
+    kpi_matrix_dias_str = str(matrix_df[matrix_df['TAG'] == '--- TOTAL DIA ---'].shape[0])
+    kpi_matrix_tags_str = str(dff['TAG'].nunique())
+    kpi_matrix_viagens_str = f"{dff.shape[0]:,}"
+
+    return html.Div([
+        dbc.Row([
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(kpi_matrix_dias_str, className="kpi-value"), html.P("Dias na Análise", className="kpi-title")])]), lg=4, md=6),
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(kpi_matrix_tags_str, className="kpi-value"), html.P("TAGs Únicas", className="kpi-title")])]), lg=4, md=6),
+            dbc.Col(dbc.Card(className="kpi-card", children=[html.Div(className="kpi-content", children=[html.H2(kpi_matrix_viagens_str, className="kpi-value"), html.P("Total de Viagens", className="kpi-title")])]), lg=4, md=12),
+        ], className="g-4 mb-4 mt-2"),
+        dbc.Row([
+            dbc.Col(dbc.Card(className="table-card", children=[
+                html.H4("Matriz de Desempenho Diário por TAG", className="table-title"),
+                dash_table.DataTable(
+                    data=data_table, columns=cols_table, page_size=20, style_table={'overflowX': 'auto', 'minHeight': '50vh'},
+                    fixed_rows={'headers': True}, style_header={'backgroundColor': '#2E3134', 'color': 'white', 'fontWeight': 'bold'},
+                    style_data={'backgroundColor': '#383b3e', 'color': 'white'},
+                    style_data_conditional=[
+                        {'if': {'filter_query': '{TAG} = "--- TOTAL DIA ---"'}, 'backgroundColor': '#4a4e52', 'fontWeight': 'bold'},
+                        {'if': {'filter_query': '{TAG} = "--- GRANDE TOTAL ---"'}, 'backgroundColor': '#004C97', 'fontWeight': 'bold', 'color': '#FFD700'},
+                    ]
+                )
+            ]), lg=8),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_matrix_top_tags)), lg=4),
+        ], className="g-4 mb-4"),
+    ])
+
+# MELHORIA: Callback para a ABA 3 (Análise de Eficiência)
+@app.callback(
+    Output('tab-content-efficiency', 'children'),
+    Input('filtered-data-store', 'data'),
+    Input('tabs-main', 'value')
+)
+def render_efficiency_tab(jsonified_data, active_tab):
+    if active_tab != 'tab-efficiency' or not jsonified_data:
+        raise dash.exceptions.PreventUpdate
+
+    dff = pd.read_json(StringIO(jsonified_data), orient='split')
+    if dff.empty:
+        return html.P("Não há dados para os filtros selecionados.")
+    
+    empty_fig = go.Figure().update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', title_text="Sem dados", title_x=0.5, font_color='#bbbbbb', height=300)
+    dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
 
     turno_summary = dff.groupby('Turno').agg(Volume=('Volume', 'sum'), Viagens=('Placa', 'count')).reset_index()
     fig_shift_performance = go.Figure(data=[go.Bar(name='Volume (t)', x=turno_summary['Turno'], y=turno_summary['Volume'], yaxis='y', offsetgroup=1), go.Bar(name='Nº Viagens', x=turno_summary['Turno'], y=turno_summary['Viagens'], yaxis='y2', offsetgroup=2)])
@@ -478,7 +454,7 @@ def update_visuals_and_kpis(jsonified_data):
     fig_load_efficiency.update_xaxes(categoryorder='total descending')
 
     dff_utilizacao = dff[dff['Volume Máx'] > 0]
-    fig_utilization_gauge = go.Figure(go.Indicator(mode="gauge+number", value=(dff_utilizacao['Volume'].sum()/dff_utilizacao['Volume Máx'].sum())*100, title={'text': "Utilização Média da Capacidade"}, gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "#FFD700"}, 'steps': [{'range': [0, 70], 'color': '#c0392b'}, {'range': [70, 90], 'color': '#f39c12'}, {'range': [90, 100], 'color': '#27ae60'}]}, number={'suffix': '%'})) if not dff_utilizacao.empty else empty_fig
+    fig_utilization_gauge = go.Figure(go.Indicator(mode="gauge+number", value=(dff_utilizacao['Volume'].sum()/dff_utilizacao['Volume Máx'].sum())*100 if dff_utilizacao['Volume Máx'].sum() > 0 else 0, title={'text': "Utilização Média da Capacidade"}, gauge={'axis': {'range': [None, 100]}, 'bar': {'color': "#FFD700"}, 'steps': [{'range': [0, 70], 'color': '#c0392b'}, {'range': [70, 90], 'color': '#f39c12'}, {'range': [90, 100], 'color': '#27ae60'}]}, number={'suffix': '%'})) if not dff_utilizacao.empty else empty_fig
     fig_utilization_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': 'white'})
 
     dff_sorted = dff.sort_values(by=['TAG', 'Data_Hora'])
@@ -493,25 +469,34 @@ def update_visuals_and_kpis(jsonified_data):
     rentabilidade_df = rentabilidade_df[rentabilidade_df['Volume_Total'] > 0]
     if not rentabilidade_df.empty:
         rentabilidade_df['Rentabilidade (R$/t)'] = rentabilidade_df['Faturamento_Total'] / rentabilidade_df['Volume_Total']
-        fig_profitability = create_figure_from_df(rentabilidade_df.sort_values('Rentabilidade (R$/t)', ascending=False), 'bar', 'Material', 'Rentabilidade (R$/t)', 'Rentabilidade (R$/t) por Material')
+        fig_profitability = create_figure_from_df(rentabilidade_df.sort_values('Rentabilidade (R$/t)', ascending=False), 'bar', 'Material', 'Rentabilidade (R$/t) por Material')
     else:
         fig_profitability = empty_fig
 
-    return (kpi_volume_str, kpi_valor_str, kpi_viagens_str, kpi_frota_str, fig_diario, fig_viagens_dia, fig_destino, fig_valor_bruto, fig_material, fig_viagens_tag, fig_anual_comparison, fig_volume_hourly_distribution, data_table, cols_table, kpi_matrix_dias_str, kpi_matrix_tags_str, kpi_matrix_viagens_str, fig_matrix_top_tags, fig_shift_performance, fig_weekday_performance, eff_data, eff_cols, fig_load_efficiency, fig_utilization_gauge, fig_time_between_trips, fig_profitability)
+    return html.Div([
+        dbc.Row([
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_utilization_gauge)), lg=4, md=12, className="mb-4"),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_shift_performance)), lg=4, md=6, className="mb-4"),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_weekday_performance)), lg=4, md=6, className="mb-4"),
+        ], className="mt-2"),
+        dbc.Row([
+            dbc.Col(dbc.Card(className="table-card", children=[
+                html.H4("Ranking de Eficiência da Frota", className="table-title"),
+                dash_table.DataTable(
+                    data=eff_data, columns=eff_cols, page_size=10, style_table={'overflowX': 'auto'},
+                    fixed_rows={'headers': True}, style_header={'backgroundColor': '#2E3134', 'color': 'white', 'fontWeight': 'bold'},
+                    style_data={'backgroundColor': '#383b3e', 'color': 'white'},
+                )
+            ]), lg=6, md=12, className="mb-4"),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_load_efficiency)), lg=6, md=12, className="mb-4"),
+        ]),
+        dbc.Row([
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_time_between_trips)), lg=6, md=12, className="mb-4"),
+            dbc.Col(dbc.Card(dcc.Graph(figure=fig_profitability)), lg=6, md=12, className="mb-4"),
+        ]),
+    ])
 
-# --- NOVO: Handler para Netlify Functions ---
-# Este é o ponto de entrada da sua função serverless.
-# Ele pega o evento da requisição HTTP e o passa para o servidor Flask (que é a base do Dash).
-# O `serverless_wsgi` faz a mágica de adaptar isso.
 
+# --- 5. Handler para Netlify Functions ---
 def handler(event, context):
-    # Os logs de depuração são úteis no Netlify
-    print("Evento recebido:", event)
-    print("Contexto recebido:", context)
-
-    # Chama a função handle_request do serverless_wsgi
-    # para que ela processe a requisição AWS Lambda e a passe para o seu app.server (Flask/Dash).
     return handle_request(server, event, context)
-
-# Remova a linha `if __name__ == '__main__': app.run(debug=False)` daqui
-# pois o aplicativo será executado pelo handler da função.
