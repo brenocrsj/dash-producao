@@ -1,157 +1,89 @@
-/* assets/style.css - Tema Industrial */
+/* assets/style.css - Tema "Grafite e Âmbar" */
 
-/* --- 1. IMPORTAÇÃO DA FONTE --- */
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* --- 2. DEFINIÇÃO DAS VARIÁVEIS DE COR --- */
 :root {
-  --theme-bg: #222831;          /* Fundo: Cinza Grafite Escuro */
-  --theme-card: #393E46;        /* Cards: Cinza Médio */
-  --theme-accent: #FFD369;      /* Destaque: Amarelo Âmbar */
-  --text-primary: #EEEEEE;      /* Texto Principal: Cinza Muito Claro */
-  --text-secondary: #a7a9ac;    /* Texto Secundário: Cinza Suave */
-  --border-color: #4e545c;      /* Bordas */
+  /* Paleta Light (ainda não usada, mas definida para o futuro) */
+  --background: 220 20% 97%;
+  --foreground: 220 10% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 10% 20%;
+  --primary: 210 85% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 15% 94%;
+  --secondary-foreground: 220 10% 30%;
+  --accent: 38 90% 55%; /* Âmbar */
+  --accent-foreground: 220 10% 10%;
+  --border: 220 15% 90%;
+  --input: 220 15% 92%;
+  --radius: 0.75rem;
 }
 
-/* --- 3. ESTILOS GERAIS --- */
+.dark {
+  /* Paleta Dark "Grafite e Âmbar" (ATIVA) */
+  --background: 220 15% 12%; /* Grafite muito escuro */
+  --foreground: 220 15% 90%; /* Cinza claro */
+  --card: 220 15% 17%; /* Grafite para cards */
+  --card-foreground: 220 15% 90%;
+  --primary: 210 85% 65%; /* Azul suave */
+  --primary-foreground: 220 10% 10%;
+  --secondary: 220 15% 22%; /* Grafite mais claro */
+  --secondary-foreground: 220 15% 85%;
+  --accent: 38 92% 60%; /* Âmbar vibrante */
+  --accent-foreground: 38 90% 10%;
+  --border: 220 15% 25%;
+  --input: 220 15% 20%;
+}
+
+/* --- ESTILOS GERAIS --- */
 body {
-  background-color: var(--theme-bg);
-  color: var(--text-primary);
-  font-family: 'Roboto Condensed', sans-serif; /* Fonte industrial */
-}
-
-.app-container {
-  padding: 20px;
-}
-
-/* --- 4. CABEÇALHO --- */
-.app-header {
-  background-color: transparent;
-  padding: 20px;
-  border-radius: 4px;
-  text-align: center;
-  margin-bottom: 20px;
-  border-bottom: 2px solid var(--border-color);
-}
-
-.app-header h1 {
-  color: var(--theme-accent);
+  font-family: 'Inter', sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
   margin: 0;
-  font-weight: 700;
-  text-transform: uppercase; /* Letras maiúsculas para o estilo */
-  letter-spacing: 2px;
+  box-sizing: border-box;
 }
 
-.app-header p {
-  color: var(--text-secondary);
-  margin: 5px 0 0;
-}
+/* --- ESTRUTURA PRINCIPAL --- */
+.app-shell { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { display: flex; flex-direction: column; width: 280px; background-color: hsl(var(--card)); border-right: 1px solid hsl(var(--border)); padding: 1rem; transition: width 0.3s ease; }
+.content { flex-grow: 1; overflow-y: auto; }
 
-/* --- 5. PAINEL DE FILTROS --- */
-.filter-panel {
-  background-color: var(--theme-card);
-  border: 1px solid var(--border-color);
-  border-radius: 4px; /* Cantos mais retos */
-  margin-bottom: 20px;
-}
+/* --- HEADER --- */
+.site-header { position: sticky; top: 0; z-index: 10; background-color: hsla(var(--background), 0.8); backdrop-filter: blur(8px); border-bottom: 1px solid hsl(var(--border)); display: flex; align-items: center; gap: 1rem; height: 4rem; padding: 0 1.5rem; }
+.page-content { padding: 1.5rem; }
+#page-title { font-size: 1.25rem; font-weight: 600; color: hsl(var(--foreground)); }
+.avatar-button { height: 32px; width: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background-color: hsl(var(--secondary)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); cursor: pointer; }
+.dropdown-menu .nav-link { background: none !important; border: none !important; padding: 0 !important; }
 
-/* Estilos para os dropdowns do Dash */
-.Select-control, .Select-menu-outer, .Select-value-label, .Select-placeholder {
-  color: var(--text-primary) !important;
-}
+/* --- SIDEBAR --- */
+.sidebar-header { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid hsl(var(--border)); }
+.sidebar-header-link { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+.sidebar-title { font-size: 1.5rem; font-weight: 700; color: hsl(var(--foreground)); }
+.sidebar-footer { padding-top: 1rem; margin-top: auto; border-top: 1px solid hsl(var(--border)); }
 
-.Select-control {
-  background-color: var(--theme-bg) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 4px !important;
-}
+/* --- LINKS DE NAVEGAÇÃO --- */
+.nav-pills .nav-link { color: hsl(var(--secondary-foreground)); display: flex; align-items: center; padding: 0.75rem 1rem; font-weight: 500; border-radius: var(--radius); }
+.nav-pills .nav-link:hover { color: hsl(var(--foreground)); background-color: hsl(var(--secondary)); }
+.nav-pills .nav-link.active { background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.nav-pills .nav-link.disabled { color: hsl(var(--foreground)); opacity: 0.4; pointer-events: none; }
 
-.Select-menu-outer {
-    background-color: var(--theme-bg) !important;
-    border: 1px solid var(--border-color) !important;
-}
+/* --- COMPONENTES DAS PÁGINAS --- */
+.app-header-title { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.05em; }
+.app-header-description { color: hsl(var(--secondary-foreground)); margin-top: 0.5rem; }
+.kpi-card { background-color: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); }
+.kpi-title { color: hsl(var(--secondary-foreground)); font-size: 0.875rem; font-weight: 500; }
+.kpi-value { color: hsl(var(--foreground)); font-size: 2.25rem; font-weight: 700; letter-spacing: -0.05em; }
+.metric-card-description { font-size: 0.875rem; color: hsl(var(--secondary-foreground));}
+.metric-card-trend { font-size: 0.875rem; font-weight: 500; margin-top: 0.5rem; }
+.metric-card-trend-positive { color: #22c55e; }
+.metric-card-trend-negative { color: #ef4444; }
 
-.Select-option:hover {
-    background-color: var(--theme-accent) !important;
-    color: var(--theme-bg) !important;
-}
+.content-card { background-color: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); }
+.chart-card-title { font-size: 1.125rem; font-weight: 600; }
+.chart-card-description { font-size: 0.875rem; color: hsl(var(--secondary-foreground)); }
 
-/* --- 6. CARDS E GRÁFICOS --- */
-.kpi-card {
-  background-color: var(--theme-card);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 20px;
-  text-align: center;
-}
-
-.kpi-title {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0;
-}
-
-.kpi-value {
-  color: var(--theme-accent);
-  font-size: 2.2rem;
-  font-weight: 700;
-  margin: 5px 0 0;
-}
-
-.table-card, .card {
-  background-color: var(--theme-card) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 4px;
-  padding: 15px;
-}
-
-/* Estilos da DataTable */
-.dash-spreadsheet {
-    background-color: var(--theme-card) !important;
-}
-
-.dash-header {
-    background-color: var(--theme-accent) !important;
-    color: var(--theme-bg) !important;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-
-.dash-cell {
-    background-color: var(--theme-card) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border-color) !important;
-}
-
-/* --- 7. ABAS (TABS) --- */
-.custom-tabs .nav-tabs {
-  border-bottom: 1px solid var(--border-color);
-}
-
-.custom-tab {
-  background-color: transparent;
-  color: var(--text-secondary);
-  border: 1px solid transparent !important;
-  border-radius: 4px 4px 0 0;
-  padding: 10px 20px;
-  cursor: pointer;
-  text-transform: uppercase;
-}
-
-.custom-tab--selected {
-  background-color: var(--theme-card);
-  color: var(--theme-accent);
-  border: 1px solid var(--border-color) !important;
-  border-bottom: 1px solid var(--theme-card) !important;
-  font-weight: bold;
-}
-
-.tab-content {
-  background-color: var(--theme-card);
-  padding: 20px;
-  border: 1px solid var(--border-color);
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-}
+/* --- TABELAS --- */
+.table-card { background-color: hsl(var(--card)); border-radius: var(--radius); padding: 1.5rem; border: 1px solid hsl(var(--border)); }
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table { --bs-table-color: hsl(var(--foreground)); --bs-table-bg: hsl(var(--card)); }
+.dash-table-container .dash-spreadsheet-container .dash-header { background-color: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); font-weight: 600; border-bottom: 1px solid hsl(var(--border)); }
