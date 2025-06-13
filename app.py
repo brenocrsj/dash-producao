@@ -41,12 +41,6 @@ def create_app_instance():
     
     return dash_app, flask_server
 
-# NOVO: Atribua explicitamente 'app' e 'server' globalmente chamando a função.
+# Atribua explicitamente 'app' e 'server' globalmente chamando a função.
 # O Gunicorn procurará por 'app' e 'server' neste nível.
 app, server = create_app_instance()
-
-# O bloco if __name__ == '__main__': (para rodar localmente com `python app.py`)
-# pode ser mantido se você o tiver em um arquivo `run.py` separado, como parece ser o caso.
-# Se você rodar `python app.py` diretamente, precisaria adicionar:
-# if __name__ == '__main__':
-#    app.run_server(debug=True)
