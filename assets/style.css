@@ -1,4 +1,4 @@
-/* assets/style.css - Tema "Produção Azul e Amarelo" (Corrigido e Atualizado) */
+/* assets/style.css - Tema "Produção Azul e Amarelo" (Responsivo e Scroll) */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -42,12 +42,16 @@
 }
 
 /* --- ESTILOS GERAIS --- */
+html, body { /* Garante que HTML e Body ocupem a altura total para rolagem */
+  height: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
 body {
   font-family: 'Inter', sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  margin: 0;
-  box-sizing: border-box;
   min-height: 100vh; /* Garante que o body ocupe a altura total da viewport */
 }
 
@@ -62,8 +66,8 @@ body {
 .app-shell-topbar {
   display: flex;
   flex-direction: column; /* Organiza os filhos (header e main) em coluna */
-  height: 100vh;
-  overflow: hidden;
+  height: 100vh; /* Garante que o contêiner principal ocupe 100% da altura da viewport */
+  overflow: hidden; /* Garante que rolagem esteja nos filhos */
 }
 
 /* REMOVIDO: .sidebar (não existe mais como elemento lateral) */
@@ -132,14 +136,13 @@ body {
 /* --- ÁREA DE CONTEÚDO PRINCIPAL (`content-below-topbar`) --- */
 .content-below-topbar {
   flex-grow: 1; /* Ocupa todo o espaço vertical restante abaixo da barra superior */
-  overflow-y: auto; /* Adiciona scroll vertical se o conteúdo for maior */
+  overflow-y: auto; /* ATIVADO: Adiciona scroll vertical se o conteúdo for maior */
   padding: 1.5rem; /* Padding para a área de conteúdo */
-  /* ALTERADO: Adiciona imagem de fundo para o dashboard, removendo a cor */
   background-image: url('/assets/background_dashboard.png'); /* Caminho para sua imagem PNG ou JPG do DASHBOARD */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* background-color: hsl(var(--background)); REMOVIDO: substituído pela imagem */
+  height: calc(100vh - var(--header-height)); /* NOVO: Garante que o content-below-topbar tenha uma altura definida para overflow funcionar */
 }
 
 /* REMOVIDO: .site-header (Era o header antigo dentro do main content) */
@@ -244,7 +247,7 @@ body {
   padding: 3rem 2.5rem; /* Aumentado o padding vertical para dar mais "ar" */
   
   /* Gradiente de fundo sutil no azul (mantendo --primary como base) */
-  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--primary-dark-blue))); /* Fundo AZUL com gradiente */
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--primary-dark-blue)));
   
   border-radius: var(--radius);
   text-align: center;
