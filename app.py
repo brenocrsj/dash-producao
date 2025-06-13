@@ -7,24 +7,25 @@ import database
 from logic.data_processing import load_and_prepare_data
 from config import SECRET_KEY
 
-def create_app():
-    server = Flask(__name__)
-    server.config.update(SECRET_KEY=SECRET_KEY)
+# Renomeada a função para evitar conflito com a variável global 'app'
+def create_app_instance():
+    flask_server = Flask(__name__)
+    flask_server.config.update(SECRET_KEY=SECRET_KEY)
     
-    with server.app_context():
+    with flask_server.app_context():
         database.init_db()
 
-    app = Dash(__name__, server=server,
-               external_stylesheets=[
-                   dbc.themes.BOOTSTRAP,
-                   dbc.icons.BOOTSTRAP,
-                   '/assets/style.css'
-               ],
-               suppress_callback_exceptions=True)
-    app.title = "FleetMaster"
+    dash_app = Dash(__name__, server=flask_server,
+                   external_stylesheets=[
+                       dbc.themes.BOOTSTRAP,
+                       dbc.icons.BOOTSTRAP,
+                       '/assets/style.css'
+                   ],
+                   suppress_callback_exceptions=True)
+    dash_app.title = "FleetMaster"
     
     login_manager = LoginManager()
-    login_manager.init_app(server)
+    login_manager.init_app(flask_server)
     login_manager.login_view = '/login'
 
     @login_manager.user_loader
@@ -35,7 +36,17 @@ def create_app():
     from logic.callbacks import register_callbacks
 
     df = load_and_prepare_data()
-    app.layout = create_main_layout(df)
-    register_callbacks(app, df)
+    dash_app.layout = create_main_layout(df)
+    register_callbacks(dash_app, df)
     
-    return app, server
+    return dash_app, flask_server
+
+# NOVO: Atribua explicitamente 'app' e 'server' globalmente chamando a função.
+# O Gunicorn procurará por 'app' e 'server' neste nível.
+app, server = create_app_instance()
+
+# O bloco if __name__ == '__main__': (para rodar localmente com `python app.py`)
+# pode ser mantido se você o tiver em um arquivo `run.py` separado, como parece ser o caso.
+# Se você rodar `python app.py` diretamente, precisaria adicionar:
+# if __name__ == '__main__':
+#    app.run_server(debug=True)
