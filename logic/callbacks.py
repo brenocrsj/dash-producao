@@ -9,7 +9,7 @@ from flask_login import login_user, logout_user, current_user
 from urllib.parse import parse_qs
 
 import database
-from components.header import TOPBAR_NAV_ITEMS
+from components.header import TOPBAR_NAV_ITEMS # Importa os itens de navegação da nova barra superior
 from components.tabs.analysis_tab import create_analysis_tab_layout, create_page_header
 from components.tabs.matrix_tab import create_matrix_tab_layout
 from components.tabs.efficiency_tab import create_efficiency_tab_layout

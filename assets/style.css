@@ -37,6 +37,8 @@
   --accent-foreground: 240 10% 10%;
   --border: 240 10% 20%; /* Cinza para bordas */
   --input: 240 10% 15%;
+  --primary-dark-blue: 220 90% 45%; /* Um azul ligeiramente mais escuro que --primary */
+  --card-shadow-color: 240 10% 3%; /* Cor para a sombra mais suave, quase preto */
 
   --header-height: 4rem; /* Altura da nova barra superior */
 }
@@ -66,8 +68,6 @@ body {
   overflow: hidden;
 }
 
-/* REMOVIDO: .sidebar (não existe mais como elemento lateral) */
-/* REMOVIDO: estilos relacionados a sidebar-header, sidebar-footer, sidebar.minimized, etc. */
 
 /* --- CABEÇALHO/BARRA SUPERIOR (`topbar-header`) --- */
 .topbar-header {
@@ -136,11 +136,6 @@ body {
   padding: 1.5rem; /* Padding para a área de conteúdo */
   background-color: hsl(var(--background)); /* Fundo do dashboard */
 }
-
-/* REMOVIDO: .site-header (Era o header antigo dentro do main content) */
-/* REMOVIDO: #page-title (Será dentro do content-below-topbar agora) */
-/* REMOVIDO: .avatar-button (Já está dentro de topbar-header) */
-/* REMOVIDO: .dropdown-menu .nav-link (Já está dentro de topbar-header) */
 
 
 /* --- COMPONENTES DAS PÁGINAS (CARDS, GRÁFICOS) --- */
@@ -248,15 +243,17 @@ body {
 .auth-card {
   width: 100%;
   max-width: 450px; /* Ajuste para um bom tamanho */
-  padding: 2.5rem;
+  padding: 3rem 2.5rem;
   /* REMOVIDO: background-image de card */
   background-color: hsl(var(--primary)); /* ALTERADO: Fundo do card para o azul principal */
+  /* Gradiente de fundo sutil no azul (mantendo --primary como base) */
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--primary-dark-blue)));
   
   border-radius: var(--radius);
   text-align: center;
   z-index: 2; /* Acima do overlay */
   position: relative;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); /* Sombra no card, se quiser remova */
+  box-shadow: 0 8px 16px hsla(var(--card-shadow-color), 0.4); /* Sombra no card, se quiser remova */
 }
 
 /* Borda amarela no card de login */
@@ -267,11 +264,11 @@ body {
 /* LOGO NO LOGIN */
 .login-logo-container {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
 }
 
 .login-logo {
-    max-width: 150px; /* Tamanho da sua logo */
+    max-width: 350px; /* Tamanho da sua logo */
     height: auto;
 }
 
@@ -280,17 +277,18 @@ body {
   border-color: hsl(var(--border));
   background-color: hsl(var(--input));
   color: hsl(var(--foreground));
+  padding: 0.75rem 1rem; /* Padding ligeiramente maior para os inputs */
 }
 
 .login-input::placeholder {
   color: hsl(var(--secondary-foreground));
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 .login-input:focus,
 .login-input:focus-visible {
   border-color: hsl(var(--accent)); /* Borda amarela ao focar */
-  box-shadow: 0 0 0 0.25rem hsla(var(--accent), 0.25);
+  box-shadow: 0 0 0 0.2rem hsla(var(--accent), 0.3);
   background-color: hsl(var(--input));
   color: hsl(var(--foreground));
   outline: none;
@@ -305,48 +303,55 @@ body {
 
 /* Ícones nos Inputs */
 .login-icon {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   color: hsl(var(--accent)); /* Cor dos ícones (amarelo) */
 }
 
 /* LEMBRAR SENHA (CHECKBOX) */
 .login-remember-me .form-check-input {
     border-color: hsl(var(--accent)); /* Borda amarela para o checkbox */
+    background-color: hsl(var(--input)); /* Fundo do checkbox quando desmarcado */
 }
 
 .login-remember-me .form-check-input:checked {
   background-color: hsl(var(--accent)); /* Fundo amarelo quando marcado */
-  border-color: hsl(var(--accent));
+  background-color: hsl(var(--input)); /* Fundo do checkbox quando desmarcado */
 }
 
 .login-remember-me .form-check-label {
   color: hsl(var(--foreground)); /* Cor do texto "Lembrar senha" */
+  font-size: 1rem; /* Tamanho do texto ligeiramente maior */
+  padding-left: 0.5rem; /* Espaço entre checkbox e label */
 }
 
 /* BOTÃO DE LOGIN */
 .login-button {
-  background-color: hsl(var(--accent)); /* Botão de login amarelo */
-  color: hsl(var(--black-text)); /* Texto do botão preto */
+  background-color: hsl(var(--accent));
+  color: hsl(var(--black-text));
   border: 1px solid hsl(var(--accent));
-  font-weight: 600;
-  padding: 0.75rem 1.5rem;
-  font-size: 1.1rem;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  font-weight: 700; /* Mais negrito */
+  padding: 0.85rem 1.5rem; /* Padding ligeiramente maior */
+  font-size: 1.2rem; /* Texto maior */
+  letter-spacing: 0.05em; /* Pequeno espaçamento entre letras */
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .login-button:hover {
-  background-color: hsl(45, 100%, 45%); /* Amarelo um pouco mais escuro no hover */
+  background-color: hsl(45, 100%, 45%);
   border-color: hsl(45, 100%, 45%);
   color: hsl(var(--black-text));
+  box-shadow: 0 4px 10px hsla(var(--accent), 0.4); /* Sombra no hover */
 }
 .login-button:active {
-  background-color: hsl(45, 100%, 40%) !important; /* Amarelo ainda mais escuro no clique */
+  background-color: hsl(45, 100%, 40%) !important;
   border-color: hsl(45, 100%, 40%) !important;
   color: hsl(var(--black-text)) !important;
+  box-shadow: none !important; /* Remove sombra no clique */
 }
 
 /* MENSAGEM DE ERRO */
 .login-error-message {
   color: #dc3545 !important;
   font-weight: 500;
+  margin-top: 1.5rem !important; /* Ajusta margem superior */
 }
