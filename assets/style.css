@@ -1,38 +1,42 @@
-/* assets/style.css - Tema "Grafite e Âmbar" */
+/* assets/style.css - Tema "Produção Azul e Amarelo" (Corrigido) */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* --- VARIÁVEIS DE CORES --- */
 :root {
   /* Paleta Light (ainda não usada, mas definida para o futuro) */
-  --background: 220 20% 97%;
-  --foreground: 220 10% 20%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 10% 20%;
-  --primary: 210 85% 55%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 15% 94%;
-  --secondary-foreground: 220 10% 30%;
-  --accent: 38 90% 55%; /* Âmbar */
-  --accent-foreground: 220 10% 10%;
-  --border: 220 15% 90%;
-  --input: 220 15% 92%;
+  --background: 0 0% 100%; /* Branco */
+  --foreground: 240 10% 30%; /* Cinza escuro */
+  --card: 0 0% 98%; /* Cinza muito claro */
+  --card-foreground: 240 10% 30%;
+  --primary: 220 90% 50%; /* Azul */
+  --primary-foreground: 0 0% 100%; /* Branco */
+  --secondary: 220 10% 90%; /* Cinza médio */
+  --secondary-foreground: 240 10% 40%;
+  --accent: 40 100% 55%; /* Amarelo (#ffb23e) */
+  --accent-foreground: 240 10% 20%;
+  --border: 220 10% 85%;
+  --input: 220 10% 92%;
   --radius: 0.75rem;
+
+  --card-dark-blue: 211 87% 13%; /* HSL para #041f3f (Fundo dos cards e login) */
+  --black-text: 240 10% 10%; /* Quase preto para o texto */
 }
 
 .dark {
-  /* Paleta Dark "Grafite e Âmbar" (ATIVA) */
-  --background: 220 15% 12%; /* Grafite muito escuro */
-  --foreground: 220 15% 90%; /* Cinza claro */
-  --card: 220 15% 17%; /* Grafite para cards */
-  --card-foreground: 220 15% 90%;
-  --primary: 210 85% 65%; /* Azul suave */
-  --primary-foreground: 220 10% 10%;
-  --secondary: 220 15% 22%; /* Grafite mais claro */
-  --secondary-foreground: 220 15% 85%;
-  --accent: 38 92% 60%; /* Âmbar vibrante */
-  --accent-foreground: 38 90% 10%;
-  --border: 220 15% 25%;
-  --input: 220 15% 20%;
+  /* Paleta Dark "Produção Azul e Amarelo" (ATIVA) */
+  --background: 240 10% 5%; /* Preto quase absoluto */
+  --foreground: 240 10% 95%; /* Cinza muito claro (quase branco) */
+  --card: var(--card-dark-blue); /* Fundo do card e login para #041f3f */
+  --card-foreground: 240 10% 95%;
+  --primary: 220 90% 55%; /* Azul vibrante */
+  --primary-foreground: 240 10% 10%; /* Quase preto para texto primário */
+  --secondary: 240 10% 15%; /* Cinza médio para secundário */
+  --secondary-foreground: 240 10% 80%;
+  --accent: 40 100% 55%; /* Amarelo vibrante (#ffb23e) */
+  --accent-foreground: 240 10% 10%;
+  --border: 240 10% 20%; /* Cinza para bordas */
+  --input: 240 10% 15%;
 }
 
 /* --- ESTILOS GERAIS --- */
@@ -42,65 +46,358 @@ body {
   color: hsl(var(--foreground));
   margin: 0;
   box-sizing: border-box;
+  min-height: 100vh; /* Garante que o body ocupe a altura total da viewport */
 }
 
-/* --- ESTRUTURA PRINCIPAL --- */
-.app-shell { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { display: flex; flex-direction: column; width: 280px; background-color: hsl(var(--card)); border-right: 1px solid hsl(var(--border)); padding: 1rem; transition: width 0.3s ease; }
-.content { flex-grow: 1; overflow-y: auto; }
+/* --- ESTRUTURA PRINCIPAL (DASHBOARD) --- */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden; /* Garante que o conteúdo não vaze */
+}
 
-/* --- HEADER --- */
-.site-header { position: sticky; top: 0; z-index: 10; background-color: hsla(var(--background), 0.8); backdrop-filter: blur(8px); border-bottom: 1px solid hsl(var(--border)); display: flex; align-items: center; gap: 1rem; height: 4rem; padding: 0 1.5rem; }
-.page-content { padding: 1.5rem; }
-#page-title { font-size: 1.25rem; font-weight: 600; color: hsl(var(--foreground)); }
-.avatar-button { height: 32px; width: 32px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background-color: hsl(var(--secondary)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); cursor: pointer; }
-.dropdown-menu .nav-link { background: none !important; border: none !important; padding: 0 !important; }
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  background-color: hsl(var(--card));
+  border-right: 1px solid hsl(var(--border));
+  padding: 1rem;
+  transition: width 0.3s ease, padding 0.3s ease;
+  flex-shrink: 0; /* Impede que a sidebar encolha mais que o necessário */
+}
 
-/* --- SIDEBAR --- */
-.sidebar-header { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid hsl(var(--border)); }
-.sidebar-header-link { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
-.sidebar-title { font-size: 1.5rem; font-weight: 700; color: hsl(var(--foreground)); }
-.sidebar-footer { padding-top: 1rem; margin-top: auto; border-top: 1px solid hsl(var(--border)); }
+.content {
+  flex-grow: 1; /* Ocupa o espaço restante */
+  overflow-y: auto; /* Adiciona scroll vertical se o conteúdo for maior */
+}
 
-/* --- LINKS DE NAVEGAÇÃO --- */
-.nav-pills .nav-link { color: hsl(var(--secondary-foreground)); display: flex; align-items: center; padding: 0.75rem 1rem; font-weight: 500; border-radius: var(--radius); }
-.nav-pills .nav-link:hover { color: hsl(var(--foreground)); background-color: hsl(var(--secondary)); }
-.nav-pills .nav-link.active { background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.nav-pills .nav-link.disabled { color: hsl(var(--foreground)); opacity: 0.4; pointer-events: none; }
+/* --- HEADER DO DASHBOARD --- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: hsla(var(--background), 0.8); /* Fundo semi-transparente */
+  backdrop-filter: blur(8px); /* Efeito blur */
+  border-bottom: 1px solid hsl(var(--border));
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 4rem;
+  padding: 0 1.5rem;
+}
 
-/* --- COMPONENTES DAS PÁGINAS --- */
+.page-content {
+  padding: 1.5rem; /* Padding para o conteúdo da página */
+}
+
+#page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.avatar-button {
+  height: 32px;
+  width: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+}
+
+.dropdown-menu .nav-link {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* --- SIDEBAR DO DASHBOARD --- */
+.sidebar-header {
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.sidebar-header-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.sidebar-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.sidebar-footer {
+  padding-top: 1rem;
+  margin-top: auto;
+  border-top: 1px solid hsl(var(--border));
+}
+
+/* Links de Navegação da Sidebar */
+.nav-pills .nav-link {
+  color: hsl(var(--secondary-foreground));
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+}
+
+.nav-pills .nav-link:hover {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--secondary));
+}
+
+.nav-pills .nav-link.active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.nav-pills .nav-link.disabled {
+  color: hsl(var(--foreground));
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* --- SIDEBAR MINIMIZÁVEL --- */
+.sidebar.minimized {
+  width: 60px; /* Largura da sidebar quando minimizada */
+  padding: 0.5rem; /* Reduz o padding para manter ícones centralizados */
+}
+
+.sidebar-header.minimized .sidebar-title,
+.sidebar-nav-text,
+.sidebar-footer.minimized .user-info {
+  display: none; /* Esconde o texto quando minimizada */
+}
+
+.sidebar-header.minimized .sidebar-header-link {
+    justify-content: center; /* Centraliza o ícone do logo */
+}
+
+.sidebar-nav-item .nav-link {
+    display: flex; /* Garante que o link seja flex para alinhar ícone e texto */
+    align-items: center;
+    gap: 0.75rem; /* Espaçamento entre ícone e texto */
+}
+
+.sidebar.minimized .sidebar-nav-item .nav-link {
+    justify-content: center; /* Centraliza os ícones quando o texto está escondido */
+    padding: 0.75rem 0.5rem; /* Ajusta padding para ícones */
+}
+
+.sidebar-nav-item .nav-link i {
+    font-size: 1.25rem; /* Garante que os ícones tenham um bom tamanho */
+}
+
+/* Garante que o main content se ajuste quando a sidebar minimiza (não precisa de margin-left se usar flex) */
+.app-shell.sidebar-minimized .content
+
+
+/* --- COMPONENTES DAS PÁGINAS (CARDS, GRÁFICOS) --- */
 .app-header-title { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.05em; }
 .app-header-description { color: hsl(var(--secondary-foreground)); margin-top: 0.5rem; }
-.kpi-card { background-color: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); }
+
+.kpi-card {
+  background-color: hsl(var(--card)); /* Usa a cor do card definida */
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1.5rem; /* Adicionado padding padrão para KPI cards */
+}
 .kpi-title { color: hsl(var(--secondary-foreground)); font-size: 0.875rem; font-weight: 500; }
-.kpi-value { color: hsl(var(--foreground)); font-size: 2.25rem; font-weight: 700; letter-spacing: -0.05em; }
+.kpi-value { color: hsl(var(--primary)); /* Usando azul para o valor do KPI */
+            font-size: 2.25rem; font-weight: 700; letter-spacing: -0.05em; }
 .metric-card-description { font-size: 0.875rem; color: hsl(var(--secondary-foreground));}
 .metric-card-trend { font-size: 0.875rem; font-weight: 500; margin-top: 0.5rem; }
 .metric-card-trend-positive { color: #22c55e; }
 .metric-card-trend-negative { color: #ef4444; }
 
-.content-card { background-color: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); }
+.content-card {
+  background-color: hsl(var(--card)); /* Usa a cor do card definida */
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 1.5rem; /* Adicionado padding padrão para content cards */
+}
 .chart-card-title { font-size: 1.125rem; font-weight: 600; }
 .chart-card-description { font-size: 0.875rem; color: hsl(var(--secondary-foreground)); }
 
 /* --- TABELAS --- */
-.table-card { background-color: hsl(var(--card)); border-radius: var(--radius); padding: 1.5rem; border: 1px solid hsl(var(--border)); }
-.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table { --bs-table-color: hsl(var(--foreground)); --bs-table-bg: hsl(var(--card)); }
-.dash-table-container .dash-spreadsheet-container .dash-header { background-color: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); font-weight: 600; border-bottom: 1px solid hsl(var(--border)); }
-/* Adicionar ao final de assets/style.css */
+.table-card {
+  background-color: hsl(var(--card)); /* Usa a cor do card definida */
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--border));
+}
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+  --bs-table-color: hsl(var(--foreground));
+  --bs-table-bg: hsl(var(--card));
+}
+.dash-table-container .dash-spreadsheet-container .dash-header {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  font-weight: 600;
+  border-bottom: 1px solid hsl(var(--border));
+}
 
-.auth-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+/* --- ESTILOS DA TELA DE LOGIN --- */
+
+/* CORREÇÃO DE SOBREPOSIÇÃO DAS TELAS: Aplica-se aos wrappers de login e dashboard no layout.py */
+.login-container-wrapper,
+.dashboard-container-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    /* A propriedade 'display' é controlada pelo callback em logic/callbacks.py (master_visibility_router) */
+}
+
+
+/* Container principal da tela de login - imagem de fundo PNG (tela cheia) */
+.auth-container-background {
+  background-image: url('/assets/background_login.png'); /* Caminho para sua imagem PNG de fundo */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+  position: relative;
+  display: flex; /* Para centralizar o card de login */
+  align-items: center;
+  justify-content: center;
 }
+
+/* Overlay escuro na imagem de fundo da tela inteira */
+.auth-container-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* Overlay preto com 60% de opacidade */
+  z-index: 1;
+}
+
+
+/* Card de Login */
 .auth-card {
   width: 100%;
-  max-width: 400px;
-  padding: 2rem;
-  background-color: hsl(var(--card));
+  max-width: 550px; /* Ajuste para um bom tamanho */
+  padding: 2.5rem;
+  /* Imagem de fundo JPEG para o CARD de login */
+  background-image: url('/assets/login_card_bg.jpeg'); /* Caminho para sua imagem JPEG do CARD */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: hsl(var(--card-dark-blue)); /* Fundo base para o card, imagem cobrirá ou misturará */
+  
   border-radius: var(--radius);
   text-align: center;
+  z-index: 2; /* Acima do overlay */
+  position: relative;
+  box-shadow: none;
+}
+
+/* Borda amarela no card de login */
+.login-card-border {
+  border: 2px solid hsl(var(--accent)); /* Borda amarela (#ffb23e) */
+}
+
+/* LOGO NO LOGIN */
+.login-logo-container {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo {
+    max-width: 450px; /* Tamanho da sua logo */
+    height: auto;
+}
+
+/* CAMPOS DE INPUT (USUÁRIO/SENHA) */
+.login-input {
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+}
+
+.login-input::placeholder {
+  color: hsl(var(--secondary-foreground));
+  opacity: 0.8;
+}
+
+.login-input:focus,
+.login-input:focus-visible {
+  border-color: hsl(var(--accent)); /* Borda amarela ao focar */
+  box-shadow: 0 0 0 0.25rem hsla(var(--accent), 0.25);
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+  outline: none;
+}
+
+/* Estilo do InputGroupText (onde ficam os ícones) */
+.input-group-text {
+  background-color: hsl(var(--secondary));
+  border-color: hsl(var(--border));
+  color: hsl(var(--accent)); /* Ícones amarelos */
+}
+
+/* Ícones nos Inputs */
+.login-icon {
+  font-size: 1.2rem;
+  color: hsl(var(--accent)); /* Cor dos ícones (amarelo) */
+}
+
+/* LEMBRAR SENHA (CHECKBOX) */
+.login-remember-me .form-check-input {
+    border-color: hsl(var(--accent)); /* Borda amarela para o checkbox */
+}
+
+.login-remember-me .form-check-input:checked {
+  background-color: hsl(var(--accent)); /* Fundo amarelo quando marcado */
+  border-color: hsl(var(--accent));
+}
+
+.login-remember-me .form-check-label {
+  color: hsl(var(--foreground)); /* Cor do texto "Lembrar senha" */
+}
+
+/* BOTÃO DE LOGIN */
+.login-button {
+  background-color: hsl(var(--accent)); /* Botão de login amarelo */
+  color: hsl(var(--black-text)); /* Texto do botão preto */
+  border: 1px solid hsl(var(--accent));
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.login-button:hover {
+  background-color: hsl(45, 100%, 45%); /* Amarelo um pouco mais escuro no hover */
+  border-color: hsl(45, 100%, 45%);
+  color: hsl(var(--black-text));
+}
+.login-button:active {
+  background-color: hsl(45, 100%, 40%) !important; /* Amarelo ainda mais escuro no clique */
+  border-color: hsl(45, 100%, 40%) !important;
+  color: hsl(var(--black-text)) !important;
+}
+
+/* MENSAGEM DE ERRO */
+.login-error-message {
+  color: #dc3545 !important;
+  font-weight: 500;
 }

@@ -7,3 +7,5 @@ THEME_COLORS = {
         'chart_4': 'hsl(260, 70%, 75%)', 'chart_5': 'hsl(190, 70%, 60%)',
     }
 }
+
+SECRET_KEY = '4173be56f64f6d04824a4bc72472f20e87d7a4405755f95c'
