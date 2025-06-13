@@ -14,6 +14,7 @@ from components.tabs.analysis_tab import create_analysis_tab_layout, create_page
 from components.tabs.matrix_tab import create_matrix_tab_layout
 from components.tabs.efficiency_tab import create_efficiency_tab_layout
 from components.tabs.user_management_tab import create_user_management_layout
+from dash.dependencies import Input, Output, State # Garanta que State está importado
 
 
 # --- 2. FUNÇÃO DE REGISTRO DE CALLBACKS ---
@@ -87,14 +88,14 @@ def register_callbacks(app, df):
 
     # NOVO CALLBACK: Para forçar a redireção após o intervalo na tela de logout
     @app.callback(
-        Output('redirect-logout', 'pathname'),
-        Input('logout-interval', 'n_intervals'),
-        prevent_initial_call=True
+        Output("navbar-collapse", "is_open"),
+        [Input("navbar-toggler", "n_clicks")],
+        [State("navbar-collapse", "is_open")],
     )
-    def perform_logout_redirect(n_intervals):
-        if n_intervals > 0:
-            return "/login"
-        raise exceptions.PreventUpdate
+    def toggle_navbar_collapse(n, is_open):
+        if n:
+            return not is_open
+        return is_open
 
 
     # CALLBACK 3: LÓGICA DE LOGIN
