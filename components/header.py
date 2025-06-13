@@ -1,43 +1,45 @@
-# components/header.py (Versão Final Corrigida)
-
-from dash import html
+# components/header.py
+from dash import html, dcc
 import dash_bootstrap_components as dbc
-from dash_iconify import DashIconify
+# from flask_login import current_user # REMOVA esta importação (já removida nas etapas anteriores)
 
 def create_header():
-    """Cria o cabeçalho superior do site (SiteHeader)."""
-    
-    user_avatar = html.Div(
-        DashIconify(icon="lucide:user-circle", width=24, height=24),
-        className="avatar-button"
-    )
-    
-    user_dropdown = dbc.DropdownMenu(
-        [
-            dbc.DropdownMenuItem("Minha Conta", header=True),
-            dbc.DropdownMenuItem(
-                [DashIconify(icon="lucide:settings", width=16, className="me-2"), "Configurações"],
-                href="/settings",
-            ),
-            dbc.DropdownMenuItem(
-                [DashIconify(icon="lucide:log-out", width=16, className="me-2"), "Sair"],
-                href="/logout",
-            ),
-        ],
-        label=user_avatar,
-        align_end=True,
-        # CORREÇÃO APLICADA AQUI:
-        toggle_class_name="nav-link",
-        color="transparent"
-    )
+    # O nome do usuário será atualizado via callback, inicialmente vazio ou placeholder
+    user_name_display = html.Div(id="header-user-name")
 
-    header = html.Header(
-        [
-            html.Button(DashIconify(icon="lucide:menu"), className="sidebar-trigger d-md-none"),
-            html.Div(html.H1(id="page-title"), className="flex-grow-1"),
-            user_dropdown,
-        ],
-        className="site-header"
+    return html.Header(
+        className="site-header",
+        children=[
+            # Botão de toggle para a sidebar
+            dbc.Button(
+                html.I(className="bi bi-list", style={"font-size": "1.5rem"}), # Ícone de hamburguer
+                id="sidebar-toggle-button",
+                className="me-3", # Margem à direita
+                color="light", # Cor clara para o botão
+                outline=True, # Botão outline
+                style={"border": "none"} # Remover borda para um visual mais limpo
+            ),
+            html.Div(id="page-title", className="flex-grow-1"), # Título da página (será preenchido via callback)
+            
+            # Avatar do usuário com dropdown
+            dbc.DropdownMenu(
+                nav=True,
+                in_navbar=True,
+                # O label do dropdown agora usa o html.Div com o ID para ser atualizado
+                label=html.Div([
+                    user_name_display, # Placeholder para o nome do usuário
+                    html.Div(
+                        html.I(className="bi bi-person-circle", style={"font-size": "1.5rem"}), # Ícone de usuário
+                        className="avatar-button"
+                    )
+                ], className="d-flex align-items-center"),
+                children=[
+                    dbc.DropdownMenuItem("Perfil", href="/settings"),
+                    dbc.DropdownMenuItem(divider=True),
+                    dbc.DropdownMenuItem("Sair", href="/logout", id="logout-link", className="text-danger"),
+                ],
+                align_end=True, # CORRIGIDO: Troquei align_right por align_end
+                toggle_style={"background": "none", "border": "none", "padding": "0"} # Estilo para o toggle do dropdown
+            ),
+        ]
     )
-    
-    return header

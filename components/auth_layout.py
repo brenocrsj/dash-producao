@@ -1,42 +1,76 @@
 # components/auth_layout.py
-
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-from dash_iconify import DashIconify
 
-def create_auth_layout(form_type='login'):
-    """Cria o layout para as telas de login ou cadastro."""
-    
-    if form_type == 'login':
-        title = "Bem-vindo de volta!"
-        description = "Faça login para acessar o dashboard."
-        button_text = "Entrar"
-        button_id = "login-button"
-        switch_link_text = "Não tem uma conta? Cadastre-se"
-        switch_link_href = "/register"
-    else: # register
-        title = "Crie sua Conta"
-        description = "Preencha os campos para iniciar."
-        button_text = "Cadastrar"
-        button_id = "register-button"
-        switch_link_text = "Já tem uma conta? Faça login"
-        switch_link_href = "/login"
-
-    return html.Div([
-        html.Div([
-            DashIconify(icon="lucide:gauge", width=48, className="mb-4 text-primary"),
-            html.H1(title, className="h2"),
-            html.P(description, className="text-muted"),
-            
-            # Div para exibir mensagens de erro
-            html.Div(id="auth-message"),
-            
-            dbc.Input(id="username-input", placeholder="Usuário", type="text", className="mb-3"),
-            dbc.Input(id="password-input", placeholder="Senha", type="password", className="mb-3"),
-            
-            dbc.Button(button_text, id=button_id, color="primary", className="w-100 mb-3"),
-            
-            dcc.Link(switch_link_text, href=switch_link_href, className="fs-sm")
-            
-        ], className="auth-card")
-    ], className="auth-container")
+def create_auth_layout():
+    return html.Div(
+        className="auth-container-background", # Classe para a imagem de fundo PNG
+        children=[
+            dbc.Card(
+                [
+                    # Seção da Logo (centralizada no topo do card)
+                    dbc.CardHeader(
+                        html.Div(
+                            html.Img(src="/assets/logo_fleetmaster.png", className="login-logo"), # Substitua pelo caminho da sua logo PNG
+                            className="login-logo-container"
+                        )
+                    ),
+                    dbc.CardBody(
+                        [
+                            # REMOVIDO: html.H2("Login", className="card-title text-center mb-4 login-title"),
+                            html.Div(className="mb-4"), # Espaçamento para compensar a remoção do título
+                            
+                            # Input de Usuário com Ícone
+                            dbc.InputGroup(
+                                [
+                                    dbc.InputGroupText(html.I(className="bi bi-person login-icon")),
+                                    dbc.Input(
+                                        id="username-input",
+                                        type="text",
+                                        placeholder="Nome de Usuário",
+                                        className="login-input"
+                                    ),
+                                ],
+                                className="mb-3"
+                            ),
+                            
+                            # Input de Senha com Ícone
+                            dbc.InputGroup(
+                                [
+                                    dbc.InputGroupText(html.I(className="bi bi-lock login-icon")),
+                                    dbc.Input(
+                                        id="password-input",
+                                        type="password",
+                                        placeholder="Senha",
+                                        className="login-input"
+                                    ),
+                                ],
+                                className="mb-3"
+                            ),
+                            
+                            # Opção "Lembrar senha"
+                            dbc.Checklist(
+                                options=[{"label": "Lembrar senha", "value": 1}],
+                                value=[],
+                                id="remember-me-checkbox",
+                                inline=True,
+                                switch=True,
+                                className="mb-4 login-remember-me"
+                            ),
+                            
+                            # Botão de Login
+                            dbc.Button(
+                                "Entrar",
+                                id="login-button",
+                                color="primary",
+                                className="w-100 mb-3 login-button"
+                            ),
+                            
+                            html.Div(id="login-output", className="mt-3 text-center text-danger login-error-message"),
+                        ]
+                    )
+                ],
+                className="auth-card login-card-border"
+            )
+        ]
+    )
