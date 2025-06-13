@@ -14,7 +14,6 @@ from components.tabs.analysis_tab import create_analysis_tab_layout, create_page
 from components.tabs.matrix_tab import create_matrix_tab_layout
 from components.tabs.efficiency_tab import create_efficiency_tab_layout
 from components.tabs.user_management_tab import create_user_management_layout
-from dash.dependencies import Input, Output, State # Garanta que State está importado
 
 
 # --- 2. FUNÇÃO DE REGISTRO DE CALLBACKS ---
@@ -30,34 +29,43 @@ def register_callbacks(app, df):
     )
     def master_visibility_router(pathname):
         if current_user.is_authenticated:
+            # Se logado, esconde o login e mostra o dashboard
+            # Armazena o status de admin no store
             return {'display': 'none'}, {'display': 'block'}, {'is_authenticated': True, 'is_admin': current_user.is_admin, 'username': current_user.username}
+        
+        # Se não logado, mostra o login e esconde o dashboard
         return {'display': 'flex'}, {'display': 'none'}, {'is_authenticated': False, 'is_admin': False, 'username': None}
 
 
     # CALLBACK 2: RENDERIZADOR DE CONTEÚDO E TÍTULO
     @app.callback(
         Output('page-content-container', 'children'),
-        # REMOVIDO: Output('page-title', 'children'), # <-- REMOVA ESTA LINHA
+        # REMOVIDO: Output('page-title', 'children'), # Removido pois page-title não existe mais como um ID no layout central
         Input('url', 'pathname'),
         Input('filtered-data-store', 'data')
     )
     def render_page_content_and_title(pathname, jsonified_data):
         if not current_user.is_authenticated:
+            # Se o pathname é /logout, mas não está autenticado, apenas redireciona para login
             if pathname == "/logout":
                 return dcc.Location(pathname="/login", id="redirect-logout-not-auth"), "Redirecionando..."
-            raise exceptions.PreventUpdate
+            raise exceptions.PreventUpdate # Impede atualização se não logado e não é logout
 
+        # Converte dados filtrados (JSON) de volta para DataFrame
+        # Se não houver dados filtrados, usa o DataFrame completo
         dff = pd.read_json(StringIO(jsonified_data), orient='split') if jsonified_data else df.copy()
+        # Reconverte colunas de data/hora após a desserialização do JSON
         dff['Data_Hora'] = pd.to_datetime(dff['Data_Hora'])
         dff['Data_Apenas'] = pd.to_datetime(dff['Data_Apenas']).dt.date
         dff['Dia_Da_Semana_Num'] = dff['Data_Hora'].dt.dayofweek
         
         page_content = html.Div()
-        # page_title = "Página não encontrada" # Esta variável não é mais um Output, pode manter se usar internamente
+        # page_title = "Página não encontrada" # Esta variável não é mais um Output, mas pode ser usada para debug interno
         
+        # Roteamento de conteúdo com base no pathname
         if pathname == "/":
             page_content = create_analysis_tab_layout(dff, 'dark')
-            # page_title = "Análise Geral" # Não precisa ser Output, pode manter para referência
+            # page_title = "Análise Geral"
         elif pathname == "/matrix":
             page_content = create_matrix_tab_layout(dff, 'dark')
             # page_title = "Análise Matricial"
@@ -65,21 +73,40 @@ def register_callbacks(app, df):
             page_content = create_efficiency_tab_layout(dff, 'dark')
             # page_title = "Análise de Eficiência"
         elif pathname == "/management/users":
+            # Proteção adicional no lado do servidor para a página de gestão de usuários
             if not current_user.is_admin:
                 return dbc.Alert("Acesso negado: Você não tem permissão para esta página.", color="danger", className="m-4")
             page_content = create_user_management_layout()
             # page_title = "Gestão de Usuários"
         elif pathname in ["/management/equipment", "/settings"]:
-            page_title_text = next((item["label"] for item in TOPBAR_NAV_ITEMS if item["href"] == pathname), "Página") # Usa o label
+            page_title_text = next((item["label"] for item in TOPBAR_NAV_ITEMS if item["href"] == pathname), "Página")
             page_content = html.Div([create_page_header(page_title_text, f"Funcionalidade em desenvolvimento."), dbc.Alert("Em breve.", color="info", className="m-4")])
-            # page_title = page_title_text # Pode manter para referência
+            # page_title = page_title_text
         elif pathname == "/logout":
-            logout_user()
-            page_content = html.Div([
-                html.Div("Saindo...", className="logout-message"),
-                dcc.Location(id="redirect-logout", refresh=True),
-                dcc.Interval(id="logout-interval", interval=500, n_intervals=0, max_intervals=1)
-            ], className="full-screen-logout-page")
+            logout_user() # Desloga o usuário
+            # Usa o estilo do card de login para a tela de logout
+            page_content = html.Div(
+                className="auth-container-background", # Usa a classe de fundo da tela de login
+                children=[
+                    dbc.Card(
+                        [
+                            html.Div(
+                                html.Img(src="/assets/logo_fleetmaster.png", className="login-logo"),
+                                className="login-logo-container"
+                            ),
+                            html.Div(
+                                html.H2("Saindo...", className="text-center mb-4 logout-title"), # Título de saída
+                                className="mb-4"
+                            ),
+                            # Ícone de carregamento ou algo mais visual
+                            html.Div(dbc.Spinner(size="lg", color="primary", type="grow"), className="text-center mb-3"),
+                            dcc.Location(id="redirect-logout", refresh=True), # O Location para redirecionar
+                            dcc.Interval(id="logout-interval", interval=500, n_intervals=0, max_intervals=1) # Redireciona após 0.5s
+                        ],
+                        className="auth-card login-card-border" # Usa as classes de card de login
+                    )
+                ]
+            )
             # page_title = "Saindo..."
         else:
             page_content = dbc.Alert("Erro 404: Página não encontrada.", color="danger", className="m-4")
@@ -88,14 +115,14 @@ def register_callbacks(app, df):
 
     # NOVO CALLBACK: Para forçar a redireção após o intervalo na tela de logout
     @app.callback(
-        Output("navbar-collapse", "is_open"),
-        [Input("navbar-toggler", "n_clicks")],
-        [State("navbar-collapse", "is_open")],
+        Output('redirect-logout', 'pathname'),
+        Input('logout-interval', 'n_intervals'),
+        prevent_initial_call=True
     )
-    def toggle_navbar_collapse(n, is_open):
-        if n:
-            return not is_open
-        return is_open
+    def perform_logout_redirect(n_intervals):
+        if n_intervals > 0:
+            return "/login"
+        raise exceptions.PreventUpdate
 
 
     # CALLBACK 3: LÓGICA DE LOGIN
@@ -124,13 +151,12 @@ def register_callbacks(app, df):
             print(f"DEBUG: Senha correta para {username}. Tentando login_user.")
             login_user(user, remember=remember)
             print(f"DEBUG: login_user chamado para {username}. Redirecionando para /.")
-            return "/", "" # Redireciona e limpa mensagem de erro
+            return "/", ""
         else:
             print(f"DEBUG: Nome de usuário ou senha inválidos para {username}.")
             return exceptions.no_update, dbc.Alert("Nome de usuário ou senha inválidos.", color="danger", duration=3000)
 
-    # --- CALLBACK 4: CADASTRO INTERNO DE USUÁRIO ---
-    # Permite o cadastro de novos usuários através da interface de gestão
+    # CALLBACK 4: CADASTRO INTERNO DE USUÁRIO
     @app.callback(
         Output('user-management-message', 'children'),
         Input('create-user-button', 'n_clicks'),
@@ -164,8 +190,7 @@ def register_callbacks(app, df):
         )
 
 
-    # --- CALLBACK 5: ATUALIZAÇÃO DOS DADOS FILTRADOS ---
-    # Filtra o DataFrame principal com base nas seleções do usuário
+    # CALLBACK 5: ATUALIZAÇÃO DOS DADOS FILTRADOS
     @app.callback(
         Output('filtered-data-store', 'data'),
         Input('date-picker-range', 'start_date'),
@@ -182,29 +207,43 @@ def register_callbacks(app, df):
         if not current_user.is_authenticated:
             raise exceptions.PreventUpdate
 
-        dff = df.copy()
+        # Cria uma cópia do DataFrame completo para filtragem
+        dff_to_filter = df.copy()
         
+        # Garante que a coluna de data no DataFrame esteja no formato datetime64[ns]
+        # e normalizada para meia-noite, para uma comparação consistente apenas por data.
+        dff_to_filter['Data_Apenas_norm'] = pd.to_datetime(dff_to_filter['Data_Apenas']).dt.normalize()
+
+        # Converte start_date e end_date (que vêm como strings do DatePickerRange)
+        # para objetos datetime64[ns] normalizados para meia-noite.
+        if start_date:
+            start_date_dt = pd.to_datetime(start_date).normalize()
+        if end_date:
+            end_date_dt = pd.to_datetime(end_date).normalize()
+
+        # Aplica filtros sequencialmente usando a nova coluna de data normalizada
         if start_date and end_date:
-            dff = dff[
-                (dff['Data_Apenas'] >= pd.to_datetime(start_date).date()) &
-                (dff['Data_Apenas'] <= pd.to_datetime(end_date).date())
+            dff_to_filter = dff_to_filter[
+                (dff_to_filter['Data_Apenas_norm'] >= start_date_dt) &
+                (dff_to_filter['Data_Apenas_norm'] <= end_date_dt)
             ]
         
         if empresas:
-            dff = dff[dff['Empresa'].isin(empresas)]
+            dff_to_filter = dff_to_filter[dff_to_filter['Empresa'].isin(empresas)]
         
         if destinos:
-            dff = dff[dff['Destino'].isin(destinos)]
+            dff_to_filter = dff_to_filter[dff_to_filter['Destino'].isin(destinos)]
         
         if materiais:
-            dff = dff[dff['Material'].isin(materiais)]
+            dff_to_filter = dff_to_filter[dff_to_filter['Material'].isin(materiais)]
         
-        # Retorna o DataFrame filtrado como JSON para o dcc.Store
-        return dff.to_json(date_format='iso', orient='split')
+        # Retorna o DataFrame filtrado. A coluna temporária 'Data_Apenas_norm' não precisa
+        # ser mantida no DataFrame final se não for usada para exibição.
+        # O Pandas serializará 'Data_Apenas' (original) ou qualquer outra coluna de data corretamente.
+        return dff_to_filter.to_json(date_format='iso', orient='split')
 
 
-    # --- CALLBACK 6: LIMPAR FILTROS ---
-    # Redefine todos os filtros para seus estados iniciais (mostrando todos os dados)
+    # CALLBACK 6: LIMPAR FILTROS
     @app.callback(
         Output('filtered-data-store', 'data', allow_duplicate=True),
         Output('date-picker-range', 'start_date'),
@@ -227,7 +266,7 @@ def register_callbacks(app, df):
                start_date, end_date, \
                [], [], []
 
-    # --- CALLBACK 7: TOGGLE DA BARRA LATERAL (Agora não faz nada visualmente, só muda a classe) ---
+    # CALLBACK 7: TOGGLE DA BARRA LATERAL (Agora não faz nada visualmente, só muda a classe)
     @app.callback(
         Output('dashboard-wrapper', 'className'),
         Output('sidebar-toggle-button', 'children'),
@@ -244,17 +283,16 @@ def register_callbacks(app, df):
 
         if 'sidebar-minimized' in current_dashboard_class:
             new_class = current_dashboard_class.replace(' sidebar-minimized', '')
-            button_icon = html.I(className="bi bi-list", style={"font-size": "1.5rem"})
+            button_icon = html.I(className="bi bi-list", style={"fontSize": "1.5rem"}) # CORRIGIDO: fontSize
         else:
             new_class = current_dashboard_class + ' sidebar-minimized'
-            button_icon = html.I(className="bi bi-x-lg", style={"font-size": "1.5rem"})
+            button_icon = html.I(className="bi bi-x-lg", style={"fontSize": "1.5rem"}) # CORRIGIDO: fontSize
 
         return new_class, button_icon
 
-    # --- CALLBACK 8: VISIBILIDADE DO LINK DE GESTÃO DE USUÁRIOS E NOME DE USUÁRIO NA TOPBAR/HEADER ---
+    # CALLBACK 8: VISIBILIDADE DO LINK DE GESTÃO DE USUÁRIOS E NOME DE USUÁRIO NA TOPBAR/HEADER
     @app.callback(
-        Output('nav-link-user-management', 'style'),
-        # REMOVIDO: Output('sidebar-user-info', 'children'), # Este ID não existe mais no layout
+        Output('nav-link-user-management', 'style'), # Esconde/mostra o link de gestão de usuários
         Output('header-user-name', 'children'), # Adicionado Output para o nome de usuário no header
         Input('login-status-store', 'data'),
     )
