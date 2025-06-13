@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 
 def create_auth_layout():
     return html.Div(
-        className="auth-container-background", # Classe para a imagem de fundo PNG
+        className="auth-container-background", # Classe para a imagem de fundo PNG (se usada)
         children=[
             dbc.Card(
                 [
@@ -17,13 +17,13 @@ def create_auth_layout():
                     ),
                     dbc.CardBody(
                         [
-                            # REMOVIDO: html.H2("Login", className="card-title text-center mb-4 login-title"),
+                            # REMOVIDO: html.H2("Login", ...), agora é apenas espaçamento
                             html.Div(className="mb-4"), # Espaçamento para compensar a remoção do título
                             
                             # Input de Usuário com Ícone
                             dbc.InputGroup(
                                 [
-                                    dbc.InputGroupText(html.I(className="bi bi-person login-icon")),
+                                    dbc.InputGroupText(html.I(className="bi bi-person login-icon")), # Ícone de pessoa
                                     dbc.Input(
                                         id="username-input",
                                         type="text",
@@ -37,7 +37,7 @@ def create_auth_layout():
                             # Input de Senha com Ícone
                             dbc.InputGroup(
                                 [
-                                    dbc.InputGroupText(html.I(className="bi bi-lock login-icon")),
+                                    dbc.InputGroupText(html.I(className="bi bi-lock login-icon")), # Ícone de cadeado
                                     dbc.Input(
                                         id="password-input",
                                         type="password",
@@ -70,7 +70,7 @@ def create_auth_layout():
                         ]
                     )
                 ],
-                className="auth-card login-card-border"
+                className="auth-card login-card-border" # Classes para estilização do card
             )
         ]
     )
