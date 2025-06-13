@@ -1,4 +1,4 @@
-/* assets/style.css - Tema "Produção Azul e Amarelo" (Responsivo e Scroll) */
+/* assets/style.css - Tema "Produção Azul e Amarelo" (Corrigido e Atualizado) */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -268,7 +268,7 @@ body {
 }
 
 .login-logo {
-    max-width: 350px; /* Levemente maior */
+    max-width: 350px; /* ALTERADO: Logo com 350px de largura máxima */
     height: auto;
 }
 
