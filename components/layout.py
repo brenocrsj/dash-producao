@@ -2,7 +2,6 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc # Importar DBC
 from .auth_layout import create_auth_layout
-from .sidebar import create_sidebar
 from .header import create_header
 from .filter_panel import create_filter_panel
 
@@ -12,12 +11,11 @@ def create_main_layout(df_full):
     # Wrapper para a tela de autenticação
     login_layout = html.Div(
         create_auth_layout(),
-        id='login-wrapper', # Adicionado id para controle de posicionamento
-        className="login-container-wrapper" # Adicionado classe para estilo
+        id='login-wrapper',
+        className="login-container-wrapper"
     )
 
     # Wrapper para o dashboard principal
-    sidebar = create_sidebar()
     header = create_header()
     
     page_content_container = html.Div(id="page-content-container")
@@ -38,9 +36,8 @@ def create_main_layout(df_full):
         ])
     ], fluid=True, className="page-content py-4")
 
-    dashboard_layout = html.Div([
-        sidebar, 
-        html.Main([header, main_content_area], className="content")
+    dashboard_layout = html.Div([ 
+        html.Main([header, main_content_area], className="content-below-topbar")
     ], 
     id='dashboard-wrapper', # Adicionado id para controle de posicionamento
     className="app-shell dark dashboard-container-wrapper", # Adicionado classe para estilo
