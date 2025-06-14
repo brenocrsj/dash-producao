@@ -50,7 +50,7 @@ def create_analysis_tab_layout(dff, theme='dark'):
             create_metric_card("Volume Total", "12.345 m³", "Volume total produzido hoje"),
             create_metric_card("Viagens Realizadas", "2.500", "Total de viagens no dia"),
             create_metric_card("Frota Operando", "50", "Número de veículos ativos"),
-        ], className="g-4 mb-4"), # g-4 para espaçamento entre colunas e linhas
+        ], className="g-4 mb-4"),
         dbc.Row([
             dbc.Col(create_chart_card("Volume por Hora", "Distribuição do volume ao longo do dia", go.Figure()), lg=6, className="mb-4"),
             dbc.Col(create_chart_card("Viagens por Material", "Quantidade de viagens por tipo de material", go.Figure()), lg=6, className="mb-4"),

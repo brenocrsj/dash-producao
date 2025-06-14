@@ -6,7 +6,6 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from io import StringIO
 from flask_login import login_user, logout_user, current_user
-from urllib.parse import parse_qs
 
 import database
 from components.header import TOPBAR_NAV_ITEMS # Importa os itens de navegação da nova barra superior
@@ -48,7 +47,7 @@ def register_callbacks(app, df):
         if not current_user.is_authenticated:
             # Se o pathname é /logout, mas não está autenticado, apenas redireciona para login
             if pathname == "/logout":
-                return dcc.Location(pathname="/login", id="redirect-logout-not-auth"), "Redirecionando..."
+                return dcc.Location(pathname="/login", id="redirect-logout-not-auth")
             raise exceptions.PreventUpdate # Impede atualização se não logado e não é logout
 
         # Converte dados filtrados (JSON) de volta para DataFrame
@@ -151,7 +150,7 @@ def register_callbacks(app, df):
             print(f"DEBUG: Senha correta para {username}. Tentando login_user.")
             login_user(user, remember=remember)
             print(f"DEBUG: login_user chamado para {username}. Redirecionando para /.")
-            return "/", ""
+            return "/", "" # Redireciona e limpa mensagem de erro
         else:
             print(f"DEBUG: Nome de usuário ou senha inválidos para {username}.")
             return exceptions.no_update, dbc.Alert("Nome de usuário ou senha inválidos.", color="danger", duration=3000)
@@ -268,27 +267,17 @@ def register_callbacks(app, df):
 
     # CALLBACK 7: TOGGLE DA BARRA LATERAL (Agora não faz nada visualmente, só muda a classe)
     @app.callback(
-        Output('dashboard-wrapper', 'className'),
-        Output('sidebar-toggle-button', 'children'),
-        Input('sidebar-toggle-button', 'n_clicks'),
-        State('dashboard-wrapper', 'className'),
-        prevent_initial_call=True
+        Output('navbar-collapse', 'is_open'), # Saída para o estado do Collapse
+        [Input('navbar-toggler', 'n_clicks')], # Entrada do botão hamburguer
     )
-    def toggle_sidebar(n_clicks, current_dashboard_class):
-        """
-        Alterna a classe 'sidebar-minimized' na sidebar e o ícone do botão de toggle.
-        """
+    def toggle_navbar_collapse(n_clicks): # n_clicks é o único argumento agora
+        print(f"DEBUG: toggle_navbar_collapse acionado. n_clicks: {n_clicks}")
         if n_clicks is None:
-            raise exceptions.PreventUpdate
-
-        if 'sidebar-minimized' in current_dashboard_class:
-            new_class = current_dashboard_class.replace(' sidebar-minimized', '')
-            button_icon = html.I(className="bi bi-list", style={"fontSize": "1.5rem"}) # CORRIGIDO: fontSize
-        else:
-            new_class = current_dashboard_class + ' sidebar-minimized'
-            button_icon = html.I(className="bi bi-x-lg", style={"fontSize": "1.5rem"}) # CORRIGIDO: fontSize
-
-        return new_class, button_icon
+            # Se não houve cliques ainda, o menu deve estar fechado
+            return False
+        
+        # O menu estará aberto se o número de cliques for ímpar, e fechado se for par
+        return n_clicks % 2 == 1
 
     # CALLBACK 8: VISIBILIDADE DO LINK DE GESTÃO DE USUÁRIOS E NOME DE USUÁRIO NA TOPBAR/HEADER
     @app.callback(
