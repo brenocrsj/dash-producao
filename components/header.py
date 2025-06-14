@@ -38,7 +38,6 @@ def create_header():
         class_name="topbar-header", # Reutiliza a classe para estilização de fundo/sombra
         children=[
             # Logo ou Título da Aplicação
-            # CORRIGIDO: class_name -> className para html.A
             html.A(
                 href="/",
                 className="navbar-brand-custom", # Usar className
@@ -57,9 +56,9 @@ def create_header():
                     nav_links_children,
                     class_name="ml-auto flex-column flex-md-row"
                 ),
-                id="navbar-collapse",
-                is_open=False,
-                navbar=True,
+                id="navbar-collapse", # ID para o Collapse
+                is_open=False, # Estado inicial: fechado
+                navbar=True, # IMPORTANTE: Garante que Collapse funcione como parte do Navbar
                 class_name="justify-content-end"
             ),
             
