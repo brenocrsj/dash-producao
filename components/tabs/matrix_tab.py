@@ -7,7 +7,7 @@ import pandas as pd
 from logic.data_processing import create_matrix_data, create_figure_from_df
 from config import THEME_COLORS
 
-# CORREÇÃO 2: Importando do novo arquivo de componentes comuns
+# Importando do novo arquivo de componentes comuns
 from components.common_components import create_page_header, create_metric_card, create_chart_card
 
 def create_matrix_tab_layout(dff, theme='dark'):

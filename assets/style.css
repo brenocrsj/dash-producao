@@ -76,8 +76,8 @@ body {
 /* --- CABEÇALHO/BARRA SUPERIOR (`topbar-header`) --- */
 .topbar-header {
   height: var(--header-height); /* Altura fixa da barra superior */
-  background-color: hsl(var(--card)); /* Fundo da barra superior (azul escuro) */
-  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--accent)); /* Fundo da barra superior (amarelo) */
+  border-bottom: 1px solid hsl(var(--accent));
   display: flex;
   align-items: center; /* Alinha itens verticalmente no centro */
   padding: 0 1.5rem;
