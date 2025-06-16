@@ -138,29 +138,34 @@ body {
   flex-grow: 1; /* Ocupa todo o espaço vertical restante abaixo da barra superior */
   overflow-y: auto; /* ATIVADO: Adiciona scroll vertical se o conteúdo for maior */
   padding: 1.5rem; /* Padding para a área de conteúdo */
-  background-image: url('/assets/background_dashboard.png'); /* Caminho para sua imagem PNG ou JPG do DASHBOARD */
+  background-image: url('/assets/background_principal.png'); /* Caminho para sua imagem PNG ou JPG do DASHBOARD */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   height: calc(100vh - var(--header-height)); /* NOVO: Garante que o content-below-topbar tenha uma altura definida para overflow funcionar */
 }
 
-/* REMOVIDO: .site-header (Era o header antigo dentro do main content) */
-/* REMOVIDO: #page-title (Será dentro do content-below-topbar agora) */
-/* REMOVIDO: .avatar-button (Já está dentro de topbar-header) */
-/* REMOVIDO: .dropdown-menu .nav-link (Já está dentro de topbar-header) */
-
+/* Estilo para alinhar o cabeçalho da página à esquerda */
+.page-header-centered {
+    text-align: left; /* ALTERADO: Alinha o texto à esquerda */
+}
 
 /* --- COMPONENTES DAS PÁGINAS (CARDS, GRÁFICOS) --- */
-.app-header-title { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.05em; }
+.app-header-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+    color: hsl(var(--accent)); /* ADICIONADO: Define a cor do título para amarelo */
+}
 .app-header-description { color: hsl(var(--secondary-foreground)); margin-top: 0.5rem; }
 
 .kpi-card {
-  background-color: hsl(var(--card)); /* Usa a cor do card definida */
-  border: 1px solid hsl(var(--border));
+  background-color: hsl(0, 0%, 100%); /* Usa a cor do card definida */
+  border: 1px solid hsl(var(--accent));
   border-radius: var(--radius);
   padding: 1.5rem; /* Adicionado padding padrão para KPI cards */
 }
+
 .kpi-title { color: hsl(var(--secondary-foreground)); font-size: 0.875rem; font-weight: 500; }
 .kpi-value { color: hsl(var(--primary)); /* Usando azul para o valor do KPI */
             font-size: 2.25rem; font-weight: 700; letter-spacing: -0.05em; }
@@ -170,8 +175,8 @@ body {
 .metric-card-trend-negative { color: #ef4444; }
 
 .content-card {
-  background-color: hsl(var(--card)); /* Usa a cor do card definida */
-  border: 1px solid hsl(var(--border));
+  background-color: hsl(0, 0%, 100%); /* Usa a cor do card definida */
+  border: 1px solid hsl(var(--accent));
   border-radius: var(--radius);
   padding: 1.5rem; /* Adicionado padding padrão para content cards */
 }
@@ -180,10 +185,10 @@ body {
 
 /* --- TABELAS --- */
 .table-card {
-  background-color: hsl(var(--card)); /* Usa a cor do card definida */
+  background-color: hsl(0, 0%, 100%); /* Usa a cor do card definida */
   border-radius: var(--radius);
   padding: 1.5rem;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(var(--accent));
 }
 .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
   --bs-table-color: hsl(var(--foreground));
@@ -326,7 +331,7 @@ body {
 }
 
 .login-remember-me .form-check-label {
-  color: hsl(var(--foreground)); /* Cor do texto "Lembrar senha" */
+  color: honeydew; /* Cor do texto "Lembrar senha" */
   font-size: 1rem; /* Tamanho do texto ligeiramente maior */
   padding-left: 0.5rem; /* Espaço entre checkbox e label */
 }
