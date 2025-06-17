@@ -1,16 +1,19 @@
 # components/header.py
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-from flask_login import current_user
+from flask_login import current_user # Continua importando, mas não será acessado diretamente na criação do layout
+
 
 # Itens de navegação para a barra superior
 TOPBAR_NAV_ITEMS = [
     {"icon": "bi bi-graph-up", "label": "Análise Geral", "href": "/"},
     {"icon": "bi bi-grid-3x3-gap-fill", "label": "Análise Matricial", "href": "/matrix"},
     {"icon": "bi bi-speedometer", "label": "Análise de Eficiência", "href": "/efficiency"},
-    {"icon": "bi bi-people", "label": "Gestão de Usuários", "href": "/management/users", "id": "nav-link-user-management"},
-    {"icon": "bi bi-tools", "label": "Gestão de Equipamentos", "href": "/management/equipment"},
-    {"icon": "bi bi-gear", "label": "Configurações", "href": "/settings"},
+    {"icon": "bi bi-people-fill", "label": "Cadastro de Clientes", "href": "/register-client", "id": "nav-link-client-registration"},
+    {"icon": "bi bi-cash-stack", "label": "Precificação", "href": "/pricing", "id": "nav-link-pricing"}, # ADICIONADO ID AQUI
+    {"icon": "bi bi-person-gear", "label": "Gestão de Usuários", "href": "/management/users", "id": "nav-link-user-management", "admin_only": True},
+    {"icon": "bi bi-tools", "label": "Gestão de Equipamentos", "href": "/management/equipment", "id": "nav-link-equipment"}, # ADICIONADO ID AQUI
+    {"icon": "bi bi-gear", "label": "Configurações", "href": "/settings", "id": "nav-link-settings"}, # ADICIONADO ID AQUI
 ]
 
 def create_header():
@@ -19,6 +22,9 @@ def create_header():
     # Cria os links de navegação para o Collapse (que será o menu mobile)
     nav_links_children = []
     for item in TOPBAR_NAV_ITEMS:
+        # REMOVIDO: A lógica de admin_only e outras verificações de current_user daqui.
+        # A visibilidade será controlada AGORA por um callback.
+        
         nav_link_args = {
             "children": [
                 html.I(className=f"{item['icon']} me-2"),
@@ -26,7 +32,7 @@ def create_header():
             ],
             "href": item["href"],
             "active": "exact",
-            "className": "nav-link px-3 py-2" # Estilos de link Bootstrap
+            "className": "nav-link px-3 py-2"
         }
         if "id" in item:
             nav_link_args["id"] = item["id"]
@@ -34,35 +40,28 @@ def create_header():
         nav_links_children.append(dbc.NavLink(**nav_link_args))
 
     return dbc.Navbar(
-        id="topbar-navbar", # ID para o Navbar
-        class_name="topbar-header", # Reutiliza a classe para estilização de fundo/sombra
+        id="topbar-navbar",
+        class_name="topbar-header",
         children=[
-            # Logo ou Título da Aplicação
             html.A(
                 href="/",
-                className="navbar-brand-custom", # Usar className
+                className="navbar-brand-custom",
                 children=[
                     html.I(className="bi bi-command me-2", style={"fontSize": "1.8rem", "color": "hsl(var(--accent))"}),
-                    html.Span("FleetMaster", className="app-brand-title")
+                    html.Span("FleetMaster", className="app-brand-title") # <<< Esta linha será alterada
                 ]
             ),
-
-            # Botão de alternar (toggler) para o menu mobile
             dbc.NavbarToggler(id="navbar-toggler", n_clicks=0, class_name="ms-auto", children=html.I(className="bi bi-list")),
-
-            # Conteúdo colapsável (links de navegação)
             dbc.Collapse(
                 dbc.Nav(
                     nav_links_children,
                     class_name="ml-auto flex-column flex-md-row"
                 ),
-                id="navbar-collapse", # ID para o Collapse
-                is_open=False, # Estado inicial: fechado
-                navbar=True, # IMPORTANTE: Garante que Collapse funcione como parte do Navbar
+                id="navbar-collapse",
+                is_open=False,
+                navbar=True,
                 class_name="justify-content-end"
             ),
-            
-            # Avatar do usuário com dropdown (mantido, mas precisa ser um dbc.NavItem)
             dbc.Nav(
                 class_name="ms-2",
                 children=[
@@ -89,5 +88,6 @@ def create_header():
                 ]
             )
         ],
-        dark=True,
+        color="warning",
+        dark=False,
     )

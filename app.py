@@ -65,4 +65,5 @@ def create_app_instance():
 
     return dash_app, flask_server
 
+
 app, server = create_app_instance()
