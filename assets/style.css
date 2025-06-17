@@ -380,3 +380,27 @@ body {
     background-color: #02971f;      /* Sua cor de fundo verde */
     border-color: #016d16;          /* Uma cor de borda um pouco mais escura para dar profundidade */
 }
+
+/* Aplica o fundo preto transparente ao container do spinner */
+.loading-overlay .dcc-loading-spinner {
+    /* Fundo preto com 60% de transparência (um pouco mais escuro) */
+    background-color: rgba(0, 0, 0, 0.6); 
+    box-shadow: none;
+    -webkit-box-shadow: none;
+}
+
+/* Estilo para o ícone do caminhão */
+.loading-truck {
+    /* Um tamanho bem grande. Se quiser exatamente 500px, pode substituir por "font-size: 500px;" */
+    font-size: 30rem; 
+    color: #02971f;
+    text-shadow: 0px 0px 15px rgba(135, 255, 166, 0.7);
+    animation: pulse-animation 1.5s infinite ease-in-out;
+}
+
+/* Animação para o caminhão (sem alterações) */
+@keyframes pulse-animation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}

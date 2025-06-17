@@ -352,6 +352,45 @@ def register_callbacks(app, df): # 'app' e 'df' são passados aqui
                 pricing_table_data, # Atualiza a tabela (mesmo em caso de falha, para refletir o estado atual)
                 new_dropdown_options_pricing # Atualiza as opções do dropdown
             )
+    # Este é o callback que faltava para conectar os filtros aos gráficos.
+    # ==================================================================
+    @app.callback(
+        Output('filtered-data-store', 'data'),
+        Input('date-picker-range', 'start_date'),
+        Input('date-picker-range', 'end_date'),
+        Input('empresa-dropdown', 'value'),
+        Input('destino-dropdown', 'value'),
+        Input('material-dropdown', 'value')
+    )
+    def update_filtered_data_store(start_date, end_date, selected_empresas, selected_destinos, selected_materiais):
+        """
+        Este callback é acionado sempre que um filtro é alterado.
+        Ele filtra o DataFrame principal e salva o resultado no dcc.Store.
+        """
+        # Começa com uma cópia do DataFrame original
+        dff = df.copy()
+
+        # 1. Filtro por Data
+        if start_date and end_date:
+            start_date_obj = pd.to_datetime(start_date).date()
+            end_date_obj = pd.to_datetime(end_date).date()
+            dff = dff[dff['Data_Apenas'].between(start_date_obj, end_date_obj)]
+
+        # 2. Filtro por Empresa
+        if selected_empresas: # Se a lista não estiver vazia
+            dff = dff[dff['Empresa'].isin(selected_empresas)]
+
+        # 3. Filtro por Destino
+        if selected_destinos: # Se a lista não estiver vazia
+            dff = dff[dff['Destino'].isin(selected_destinos)]
+
+        # 4. Filtro por Material
+        if selected_materiais: # Se a lista não estiver vazia
+            dff = dff[dff['Material'].isin(selected_materiais)]
+
+        # Converte o DataFrame filtrado para JSON e o armazena
+        return dff.to_json(date_format='iso', orient='split')
+  
 
     # CALLBACK 6: LIMPAR FILTROS
     @app.callback(
