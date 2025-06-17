@@ -43,6 +43,15 @@ def create_header():
         id="topbar-navbar",
         class_name="topbar-header",
         children=[
+            # <<< ADICIONE ESTE BOTÃO AQUI >>>
+            dbc.Button(
+                html.I(className="bi bi-filter-circle"),
+                id="sidebar-toggle-button",
+                color="info",
+                className="me-3",  # Adiciona uma margem à direita
+                n_clicks=0,
+                title="Mostrar/Ocultar Filtros"
+            ),      
             html.A(
                 href="/",
                 className="navbar-brand-custom",
@@ -88,6 +97,6 @@ def create_header():
                 ]
             )
         ],
-        color="warning",
-        dark=False,
+        color="dark",
+        dark=True,
     )

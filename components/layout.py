@@ -8,7 +8,6 @@ from .filter_panel import create_filter_panel
 def create_main_layout(df_full):
     """Cria o layout base COMPLETO da aplicação, com ambas as visualizações."""
     
-    # Wrapper para a tela de autenticação
     login_layout = html.Div(
         create_auth_layout(),
         id='login-wrapper',

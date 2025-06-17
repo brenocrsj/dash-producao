@@ -84,6 +84,7 @@ body {
   gap: 1.5rem; /* Espaçamento entre logo, navegação e avatar */
   flex-shrink: 0; /* Impede que o header encolha */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra suave para o header */
+
 }
 
 .navbar-brand-custom {
@@ -207,7 +208,7 @@ body {
 /* CORREÇÃO DE SOBREPOSIÇÃO DAS TELAS: Aplica-se aos wrappers de login e dashboard no layout.py */
 .login-container-wrapper,
 .dashboard-container-wrapper {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100vw;

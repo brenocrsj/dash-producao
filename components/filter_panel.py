@@ -1,59 +1,64 @@
 # components/filter_panel.py
+
 import dash_bootstrap_components as dbc
 from dash import html, dcc
-import pandas as pd # Certifique-se de que o pandas está importado
+import pandas as pd
 
 def create_filter_panel(df):
-    """Cria o painel de filtros do dashboard."""
-    # Obter opções únicas para os dropdowns
+    """
+    Cria e retorna APENAS o Card com os componentes de filtro.
+    A lógica de visibilidade foi movida para o layout e callbacks principais.
+    """
+    # Obtenção de valores únicos para os dropdowns
     empresas = sorted(df['Empresa'].dropna().unique()) if 'Empresa' in df.columns else []
     destinos = sorted(df['Destino'].dropna().unique()) if 'Destino' in df.columns else []
     materiais = sorted(df['Material'].dropna().unique()) if 'Material' in df.columns else []
 
+    # Retorna diretamente o Card com todos os filtros
     return dbc.Card(
         dbc.CardBody([
             html.H5("Filtros", className="card-title mb-3"),
-            html.Label("Período:"),
+            
+            html.Label("Período:", className="form-label"),
             dcc.DatePickerRange(
                 id='date-picker-range',
-                start_date_placeholder_text="Data de Início",
-                end_date_placeholder_text="Data Final",
                 display_format='DD/MM/YYYY',
-                month_format='MMMMYYYY',
+                month_format='MMMM YYYY',
+                start_date_placeholder_text="Início",
+                end_date_placeholder_text="Fim",
                 clearable=True,
-                className="mb-3"
+                className="mb-3 w-100"
             ),
-            html.Label("Empresa:"),
+
+            html.Label("Empresa:", className="form-label"),
             dcc.Dropdown(
                 id='empresa-dropdown',
                 options=[{'label': i, 'value': i} for i in empresas],
                 multi=True,
-                placeholder="Selecione a(s) empresa(s)",
+                placeholder="Selecione...",
                 className="mb-3"
             ),
-            html.Label("Destino:"),
+
+            html.Label("Destino:", className="form-label"),
             dcc.Dropdown(
                 id='destino-dropdown',
                 options=[{'label': i, 'value': i} for i in destinos],
                 multi=True,
-                placeholder="Selecione o(s) destino(s)",
+                placeholder="Selecione...",
                 className="mb-3"
             ),
-            html.Label("Material:"),
+
+            html.Label("Material:", className="form-label"),
             dcc.Dropdown(
                 id='material-dropdown',
                 options=[{'label': i, 'value': i} for i in materiais],
                 multi=True,
-                placeholder="Selecione o(s) material(is)",
+                placeholder="Selecione...",
                 className="mb-3"
             ),
-            dbc.Button("Limpar Filtros", id="clear-filters-button", color="secondary", className="mt-3 me-2"), # Adicionado me-2 para espaçamento
-            dbc.Button(
-                [html.I(className="bi bi-arrows-angle-contract"), " Esconder Filtro"], # Ícone e texto
-                id="toggle-filter-button", 
-                color="info", 
-                className="mt-3"
-            ) # <<< ADICIONADO AQUI: Botão para esconder/mostrar filtro
+            
+            # O botão de limpar filtros permanece aqui, o que está correto.
+            dbc.Button("Limpar Filtros", id="clear-filters-button", color="secondary", className="mt-3 w-100"),
         ]),
-        className="content-card"
+        className="h-100"  # Classe para fazer o card ocupar a altura da coluna
     )
