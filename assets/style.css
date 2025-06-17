@@ -1,4 +1,4 @@
-/* assets/style.css - Tema "Produção Azul e Amarelo" (Corrigido e Atualizado) */
+/* assets/style.css - Tema "Produção Azul e Verde " (Corrigido e Atualizado) */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -13,7 +13,7 @@
   --primary-foreground: 0 0% 100%; /* Branco */
   --secondary: 220 10% 90%; /* Cinza médio */
   --secondary-foreground: 240 10% 40%;
-  --accent: 40 100% 55%; /* Amarelo (#ffb23e) */
+  --accent: 133 97% 30%; /* Verde */
   --accent-foreground: 240 10% 20%;
   --border: 220 10% 85%;
   --input: 220 10% 92%;
@@ -24,7 +24,7 @@
 }
 
 .dark {
-  /* Paleta Dark "Produção Azul e Amarelo" (ATIVA) */
+  /* Paleta Dark "Produção Azul e Verde" (ATIVA) */
   --background: 240 10% 5%; /* Preto quase absoluto */
   --foreground: 240 10% 95%; /* Cinza muito claro (quase branco) */
   --card: var(--card-dark-blue); /* Fundo do card e login para #041f3f */
@@ -33,7 +33,7 @@
   --primary-foreground: 240 10% 10%; /* Quase preto para texto primário */
   --secondary: 240 10% 15%; /* Cinza médio para secundário */
   --secondary-foreground: 240 10% 80%;
-  --accent: 40 100% 55%; /* Amarelo vibrante (#ffb23e) */
+  --accent: 133 97% 30%; /* Verde*/
   --accent-foreground: 240 10% 10%;
   --border: 240 10% 20%; /* Cinza para bordas */
   --input: 240 10% 15%;
@@ -76,7 +76,7 @@ body {
 /* --- CABEÇALHO/BARRA SUPERIOR (`topbar-header`) --- */
 .topbar-header {
   height: var(--header-height); /* Altura fixa da barra superior */
-  background-color: hsl(var(--accent)); /* Fundo da barra superior (amarelo) */
+  background-color: hsl(var(--accent)); /* Verde */
   border-bottom: 1px solid hsl(var(--accent));
   display: flex;
   align-items: center; /* Alinha itens verticalmente no centro */
@@ -156,7 +156,7 @@ body {
     font-size: 1.875rem;
     font-weight: 700;
     letter-spacing: -0.05em;
-    color: hsl(var(--accent)); /* ADICIONADO: Define a cor do título para amarelo */
+    color: hsl(var(--accent)); /* ADICIONADO: Define a cor do título para Verde */
 }
 .app-header-description { color: hsl(var(--secondary-foreground)); margin-top: 0.5rem; }
 
@@ -304,7 +304,7 @@ body {
 .input-group-text {
   background-color: hsla(var(--secondary), 0.5); /* Fundo do ícone um pouco transparente */
   border-color: hsl(var(--border));
-  color: hsl(var(--accent)); /* Ícones amarelos */
+  color: hsl(var(--accent)); /* Ícones verde*/
   padding: 0.75rem 0.75rem; /* Padding para alinhar com input */
 }
 
@@ -327,7 +327,7 @@ body {
 }
 
 .login-remember-me .form-check-input:checked {
-  background-color: hsl(var(--accent)); /* Fundo amarelo quando marcado */
+  background-color: hsl(var(--accent)); /* Fundo verde quando marcado */
   border-color: hsl(var(--accent));
 }
 
@@ -339,13 +339,13 @@ body {
 
 /* BOTÃO DE LOGIN */
 .login-button {
-  background-color: hsl(var(--accent)); /* Botão de login amarelo */
+  background-color: hsl(var(--accent)); /* Botão de login verdeo */
   color: hsl(var(--black-text)); /* Texto do botão preto */
   border: 1px solid hsl(var(--accent)); font-weight: 600; padding: 0.75rem 1.5rem; font-size: 1.1rem;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.login-button:hover { background-color: hsl(45, 100%, 45%); border-color: hsl(45, 100%, 45%); color: hsl(var(--black-text)); }
-.login-button:active { background-color: hsl(45, 100%, 40%) !important; border-color: hsl(45, 100%, 40%) !important; color: hsl(var(--black-text)) !important; }
+.login-button:hover { background-color: hsl(133, 97%, 30%); border-color: hsl(133, 97%, 30%); color: hsl(var(--black-text)); }
+.login-button:active { background-color: hsl(133, 97%, 30%) !important; border-color: hsl(133, 97%, 30%) !important; color: hsl(var(--black-text)) !important; }
 
 /* MENSAGEM DE ERRO */
 .login-error-message { color: #dc3545 !important; font-weight: 500; margin-top: 1.5rem !important; }
@@ -372,4 +372,11 @@ body {
     font-weight: 700;
     margin-bottom: 1rem;
     color: hsl(var(--primary));
+}
+
+/* Nova classe para alertas com seu tom de verde personalizado */
+.alert-custom-green {
+    color: #ffffff;                 /* Cor do texto (branco) */
+    background-color: #02971f;      /* Sua cor de fundo verde */
+    border-color: #016d16;          /* Uma cor de borda um pouco mais escura para dar profundidade */
 }

@@ -12,7 +12,7 @@ THEME_COLORS = {
         'chart_4': 'hsl(260, 70%, 75%)',    # Cor específica para o quarto conjunto de dados em gráficos.
         'chart_5': 'hsl(190, 70%, 60%)',    # Cor específica para o quinto conjunto de dados em gráficos.
         'card_bg': 'hsla(220, 15%, 20%, 0)', # Cor de fundo para os cards de KPI e áreas de plotagem dos gráficos (definido como transparente).
-        'grid_line': 'hsl(220, 10%, 30%)',  # Cor das linhas de grade dentro dos gráficos para melhor visualização.
+        'grid_line': 'hsl(133, 97%, 30%)',  # Cor das linhas de grade dentro dos gráficos para melhor visualização.
         'border': 'hsl(240, 10%, 20%)',     # <<< ADICIONADO: Cor para bordas dos componentes Python (um cinza escuro)
     }
 }
