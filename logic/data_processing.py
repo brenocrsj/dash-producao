@@ -1,118 +1,120 @@
 # logic/data_processing.py
+
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from functools import lru_cache
+from datetime import datetime
+import database
 
-# --- Funções de Limpeza de Dados ---
-
+# --- Funções de Limpeza de Dados (sem alterações) ---
 def clean_numeric_column(series: pd.Series) -> pd.Series:
-    """
-    Converte uma coluna para numérico, tratando vírgulas como decimais e erros.
-    Valores não numéricos são preenchidos com 0.
-    """
+    """Converte uma coluna para numérico, tratando vírgulas como decimais e erros."""
     return pd.to_numeric(
         series.astype(str).str.replace(',', '.', regex=False),
         errors='coerce'
     ).fillna(0)
 
-
 def clean_text_column(series: pd.Series) -> pd.Series:
-    """
-    Limpa e padroniza uma coluna de texto.
-    Remove espaços extras, converte para maiúsculas.
-    """
+    """Limpa e padroniza uma coluna de texto."""
     return series.astype(str).str.strip().str.upper()
-
-
-# --- Carregamento e Pré-processamento de Dados ---
 
 @lru_cache(maxsize=None)
 def load_and_prepare_data() -> pd.DataFrame:
     """
-    Carrega, pré-processa e une os dados das abas do Google Sheets.
-    O resultado é cacheado em memória para alta performance, evitando
-    novos downloads a cada atualização da página.
+    Carrega, padroniza, pré-processa e une os dados de todas as fontes de forma segura e robusta.
     """
     try:
-        print("Carregando e preparando dados da frota...") # Considerar usar um logger para produção
+        print("--- INICIANDO CARREGAMENTO DE DADOS ---")
 
-        # URLs para exportação direta das planilhas como CSV.
-        # Estas URLs são estáticas para os dados fornecidos.
-        url_volume = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=0'
-        url_frota = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=1061355856'
-        url_precificacao = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv&gid=998298177'
+        # URLs com timestamp para evitar cache
+        timestamp = datetime.now().timestamp()
+        base_url = 'https://docs.google.com/spreadsheets/d/1gUfUjoYN-zKOuAmzzl4AP35wz0PeaR5eGm4B34Cj0LI/export?format=csv'
+        url_volume = f'{base_url}&gid=0&timestamp={timestamp}'
+        url_frota = f'{base_url}&gid=1061355856&timestamp={timestamp}'
 
-        # Carregar DataFrames
+        # 1. Carregamento dos dados
         df_volume = pd.read_csv(url_volume)
         df_frota = pd.read_csv(url_frota)
-        df_precificacao = pd.read_csv(url_precificacao)
+        all_pricing_from_db = database.get_all_pricing()
+        df_precificacao = pd.DataFrame(all_pricing_from_db, columns=['id', 'destination', 'price_per_ton', 'start_date', 'end_date'])
+        print(f"-> Dados carregados: {df_volume.shape[0]} de volume, {df_frota.shape[0]} de frota, {len(df_precificacao)} de preços.")
 
-        print("Dados carregados do Google Sheets com sucesso!")
-
-        # Padronização e Limpeza de nomes de colunas
-        df_volume.rename(columns={'Coluna1': 'TAG'}, inplace=True, errors='ignore')
-        df_frota.rename(columns={'PLACA': 'Placa'}, inplace=True, errors='ignore')
-        df_precificacao.rename(columns={'Frente': 'Destino'}, inplace=True, errors='ignore')
-
-        # Limpeza das colunas de texto usando a função auxiliar
-        for col in ['Destino', 'Material', 'Placa', 'TAG']:
-            if col in df_volume.columns:
-                df_volume[col] = clean_text_column(df_volume[col])
-
-        if 'Placa' in df_frota.columns:
-            df_frota['Placa'] = clean_text_column(df_frota['Placa'])
-
-        if 'Destino' in df_precificacao.columns:
-            df_precificacao['Destino'] = clean_text_column(df_precificacao['Destino'])
-
-
-        # Processamento de datas e limpeza de colunas numéricas do df_volume
-        df_volume['Data_Hora'] = pd.to_datetime(
-            df_volume['Data'].astype(str) + ' ' + df_volume['Hora'].astype(str),
-            format='mixed', errors='coerce'
-        )
-        df_volume.dropna(subset=['Data_Hora'], inplace=True)
-        df_volume['Data_Apenas'] = df_volume['Data_Hora'].dt.date
-        df_volume['Hora_Do_Dia'] = df_volume['Data_Hora'].dt.hour
-        df_volume['Volume'] = clean_numeric_column(df_volume['Volume'])
-
-        # Junção (Merge) dos dataframes para criar o dataframe final
-        df_merged = pd.merge(df_volume, df_frota, on='Placa', how='left')
-        df_final = pd.merge(df_merged, df_precificacao, on='Destino', how='left')
-
-        # Limpeza final de colunas numéricas e de texto no df_final
-        for col in ['Valor Bruto', 'Volume Máx']:
-            if col in df_final.columns:
-                df_final[col] = clean_numeric_column(df_final[col])
-
-        for col in ['Empresa', 'Proprietario', 'Modelo', 'Tipo', 'STATUS', 'IDENTIFICAÇÃO', 'FROTA', 'CLIENTE']:
-            if col in df_final.columns:
-                df_final[col] = clean_text_column(df_final[col])
-
-
-        # Criação de novas colunas derivadas
-        if 'Volume' in df_final.columns and 'Valor Bruto' in df_final.columns:
-            df_final['Valor Bruto Total'] = df_final['Volume'] * df_final['Valor Bruto']
-        else:
-            if 'Valor Bruto Total' not in df_final.columns:
-                df_final['Valor Bruto Total'] = 0
-
-        df_final['Turno'] = np.where(
-            (df_final['Hora_Do_Dia'] >= 6) & (df_final['Hora_Do_Dia'] < 18),
-            '1º Turno', '2º Turno'
-        )
-        df_final['Dia_Da_Semana_Num'] = pd.to_datetime(df_final['Data_Apenas']).dt.dayofweek
+        # 2. Padronização de Colunas
+        df_volume.columns = df_volume.columns.astype(str).str.strip().str.lower().str.replace(' ', '_')
+        df_frota.columns = df_frota.columns.astype(str).str.strip().str.lower().str.replace(' ', '_')
+        if not df_precificacao.empty:
+            df_precificacao.columns = df_precificacao.columns.astype(str).str.strip().str.lower()
         
+        # 3. Preparação e Limpeza
+        df_volume.rename(columns={'unnamed:_0': 'tag'}, inplace=True, errors='ignore')
+        df_volume['data_hora'] = pd.to_datetime(df_volume['data'].astype(str) + ' ' + df_volume['hora'].astype(str), format='mixed', errors='coerce')
+        df_volume.dropna(subset=['data_hora'], inplace=True)
+        df_volume['data_apenas'] = df_volume['data_hora'].dt.date
+        df_volume['hora_do_dia'] = df_volume['data_hora'].dt.hour
+        df_volume['volume'] = clean_numeric_column(df_volume['volume'])
+        
+        if 'placa' in df_frota.columns:
+            df_frota['placa'] = clean_text_column(df_frota['placa'])
+            df_frota.drop_duplicates(subset=['placa'], keep='first', inplace=True)
+
+        if not df_precificacao.empty:
+            df_precificacao.rename(columns={'price_per_ton': 'valor_bruto'}, inplace=True)
+            df_precificacao['start_date'] = pd.to_datetime(df_precificacao['start_date']).dt.date
+            df_precificacao['end_date'] = pd.to_datetime(df_precificacao['end_date']).dt.date
+            if 'destination' in df_precificacao.columns:
+                df_precificacao['destino'] = clean_text_column(df_precificacao['destination'])
+            df_precificacao['valor_bruto'] = clean_numeric_column(df_precificacao['valor_bruto'])
+        
+        # 4. Junção (Merge)
+        df_final = pd.merge(df_volume, df_frota, on='placa', how='left')
+        
+        if not df_precificacao.empty:
+            df_final = pd.merge(df_final, df_precificacao, on='destino', how='left')
+            condition = (
+                (df_final['data_apenas'] >= df_final['start_date']) &
+                (df_final['data_apenas'] <= df_final['end_date'])
+            )
+            df_final['valor_bruto_total'] = np.where(condition, df_final['volume'] * df_final['valor_bruto'], 0)
+            df_final['valor_bruto'] = np.where(condition, df_final['valor_bruto'], 0)
+        else:
+            df_final['valor_bruto'] = 0
+            df_final['valor_bruto_total'] = 0
+
+        # <<< CORREÇÃO AQUI: REINTRODUZINDO O CÁLCULO DO TURNO >>>
+        if 'hora_do_dia' in df_final.columns:
+            df_final['turno'] = np.where(
+                (df_final['hora_do_dia'] >= 6) & (df_final['hora_do_dia'] < 18), 
+                '1º Turno', 
+                '2º Turno'
+            )
+        else:
+            df_final['turno'] = 'N/A'
+
+        if 'data_apenas' in df_final.columns:
+            df_final['dia_da_semana_num'] = pd.to_datetime(df_final['data_apenas']).dt.dayofweek
+        else:
+            df_final['dia_da_semana_num'] = None
+
+        # 6. Renomeação Final
+        df_final.rename(columns={
+            'data_hora': 'Data_Hora', 'data_apenas': 'Data_Apenas', 'hora_do_dia': 'Hora_Do_Dia',
+            'volume': 'Volume', 'placa': 'Placa', 'destino': 'Destino', 'material': 'Material',
+            'valor_bruto': 'Valor Bruto', 'valor_bruto_total': 'Valor Bruto Total', 'tag': 'TAG',
+            'empresa': 'Empresa', 'turno': 'Turno', 'dia_da_semana_num': 'Dia_Da_Semana_Num'
+        }, inplace=True, errors='ignore')
+
+        print("Processamento de dados concluído.")
         return df_final
-
     except Exception as e:
-        print(f"Ocorreu um erro CRÍTICO ao carregar os dados da frota: {e}")
-        # Retorna um DataFrame vazio em caso de erro para evitar quebrar a aplicação
+        print(f"ERRO CRÍTICO em load_and_prepare_data: {e}")
         return pd.DataFrame()
-
-
+    except Exception as e:
+        print(f"!!!!!!!! OCORREU UM ERRO CRÍTICO AO CARREGAR OS DADOS !!!!!!!!")
+        print(f"Detalhe do erro: {e}")
+        return pd.DataFrame()
+    
 # --- Funções de Análise e Geração de Gráficos ---
 
 def create_matrix_data(dff: pd.DataFrame) -> pd.DataFrame:
@@ -127,7 +129,7 @@ def create_matrix_data(dff: pd.DataFrame) -> pd.DataFrame:
         Volume_Total=('Volume', 'sum'),
         N_Viagens=('Placa', 'count')  # <--- Este é o nome da coluna que está sendo criada
     ).reset_index()
-    return grouped
+    return pd.DataFrame()
 
 
 def create_figure_from_df(fig_df: pd.DataFrame, chart_type: str, x_col: str, y_col: str, title: str, color_sequence=None) -> go.Figure:
@@ -154,9 +156,6 @@ def create_figure_from_df(fig_df: pd.DataFrame, chart_type: str, x_col: str, y_c
         ACCENT_COLOR, # Amarelo, para destaque se houver muitas séries
         'hsl(220, 50%, 75%)', # Azul mais suave
     ]
-
-    if color_sequence is None:
-        color_sequence = default_color_sequence
 
     if chart_type == 'bar':
         fig = px.bar(fig_df, x=x_col, y=y_col, title=title, text_auto='.2s',
