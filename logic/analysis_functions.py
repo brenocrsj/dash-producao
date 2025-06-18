@@ -11,8 +11,10 @@ def create_matrix_data(dff: pd.DataFrame) -> pd.DataFrame:
     """
     # Se o DataFrame estiver vazio ou faltando colunas essenciais, retorna vazio
     if dff.empty or not all(col in dff.columns for col in ['Data_Apenas', 'TAG', 'Volume', 'Placa']):
-        return pd.DataFrame()
-
+        print("AVISO em create_matrix_data: DataFrame vazio ou faltando colunas essenciais ('Data_Apenas', 'TAG', etc).")
+        return pd.DataFrame() # Retorna uma tabela vazia para não quebrar o app
+    
+    print("Gerando dados da matriz...")
     # <<< LÓGICA CORRETA DE AGRUPAMENTO >>>
     # Agrupa os dados por Data e TAG
     grouped = dff.groupby(['Data_Apenas', 'TAG']).agg(

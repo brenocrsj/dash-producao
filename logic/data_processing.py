@@ -48,12 +48,17 @@ def load_and_prepare_data() -> pd.DataFrame:
             df_precificacao.columns = df_precificacao.columns.astype(str).str.strip().str.lower()
         
         # 3. Preparação e Limpeza
-        df_volume.rename(columns={'unnamed:_0': 'tag'}, inplace=True, errors='ignore')
+        df_volume.rename(columns={'unnamed:_0': 'tag', 'coluna1': 'tag'}, inplace=True, errors='ignore')
         df_volume['data_hora'] = pd.to_datetime(df_volume['data'].astype(str) + ' ' + df_volume['hora'].astype(str), format='mixed', errors='coerce')
         df_volume.dropna(subset=['data_hora'], inplace=True)
         df_volume['data_apenas'] = df_volume['data_hora'].dt.date
         df_volume['hora_do_dia'] = df_volume['data_hora'].dt.hour
         df_volume['volume'] = clean_numeric_column(df_volume['volume'])
+
+        # Verificação de segurança: se a coluna 'tag' ainda não existir, cria uma vazia
+        if 'tag' not in df_volume.columns:
+            print("AVISO: Coluna 'tag' não foi encontrada em df_volume. Criando coluna 'TAG' vazia para evitar erro.")
+            df_volume['tag'] = 'N/A'
         
         if 'placa' in df_frota.columns:
             df_frota['placa'] = clean_text_column(df_frota['placa'])
@@ -107,6 +112,7 @@ def load_and_prepare_data() -> pd.DataFrame:
 
         print("Processamento de dados concluído.")
         return df_final
+    
     except Exception as e:
         print(f"ERRO CRÍTICO em load_and_prepare_data: {e}")
         return pd.DataFrame()
