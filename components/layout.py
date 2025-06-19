@@ -1,4 +1,3 @@
-# components/layout.py
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 from .auth_layout import create_auth_layout
@@ -6,46 +5,19 @@ from .header import create_header
 from .filter_panel import create_filter_panel
 
 def create_main_layout(df_full):
-    """Cria o layout base COMPLETO da aplicação, com a tela de carregamento correta."""
+    """Cria o layout base com a nova tela de carregamento de sobreposição."""
     
-    login_layout = html.Div(
-        create_auth_layout(),
-        id='login-wrapper',
-        className="login-container-wrapper"
-    )
-
+    login_layout = html.Div(create_auth_layout(), id='login-wrapper', className="login-container-wrapper")
     header = create_header()
-
-    # --- Definindo o spinner personalizado para deixar o código mais limpo ---
-    custom_spinner = html.Div(html.I(className="bi bi-truck loading-truck"))
-
     main_content_area = dbc.Container([
         dbc.Row([
             dbc.Col(
-                html.Div(
-                    id='filter-panel-wrapper',
-                    children=create_filter_panel(df_full)
-                ),
-                md=3,
-                id='filter-col',
-                className="mb-4 d-flex justify-content-center align-items-start"
+                html.Div(id='filter-panel-wrapper', children=create_filter_panel(df_full)),
+                md=3, id='filter-col', className="mb-4 d-flex justify-content-center align-items-start"
             ),
-            
-            # <<< A CORREÇÃO FINAL E DEFINITIVA ESTÁ NESTA COLUNA >>>
             dbc.Col(
-                # Usamos dcc.Loading para envolver diretamente o conteúdo da página.
-                dcc.Loading(
-                    id="loading-content",
-                    type="default", # Não mostra o spinner padrão
-                    className="loading-overlay", # Aplica o fundo transparente do seu CSS
-                    custom_spinner=custom_spinner, # <<< USANDO A PROPRIEDADE CORRETA
-                    children=[
-                        # O conteúdo que será carregado (e que o Loading vai "observar") vai aqui
-                        html.Div(id='page-content-container')
-                    ]
-                ),
-                md=9,
-                id='page-content-col'
+                html.Div(id='page-content-container'), # O conteúdo real da página
+                md=9, id='page-content-col'
             )
         ])
     ], fluid=True, className="page-content py-4")
@@ -53,13 +25,30 @@ def create_main_layout(df_full):
     dashboard_layout = html.Div([
         header,
         html.Main([main_content_area], className="content-below-topbar")
-    ], 
-    id='dashboard-wrapper',
-    className="app-shell-topbar dark dashboard-container-wrapper",
+    ], id='dashboard-wrapper', className="app-shell-topbar dark dashboard-container-wrapper")
+
+    # <<< CORREÇÃO PRINCIPAL AQUI: Definindo a nova animação >>>
+    custom_spinner = html.Div(
+        className="loader-animation-container",  # O novo container da animação
+        children=[
+            # A "carga" (ícone de caixa que se move)
+            html.I(className="bi bi-box-seam loader-load-item"),
+            # O caminhão (que fica parado)
+            html.I(className="bi bi-truck loader-truck-base")
+        ]
     )
 
-    # O resto do seu layout permanece o mesmo
+    # Layout final com o dcc.Loading global
     return html.Div([
+        # O dcc.Loading agora usa o 'custom_spinner' que acabamos de criar
+        dcc.Loading(
+            id="loading-global",
+            type="default",
+            className="loading-overlay",
+            children=custom_spinner # Passando a nova animação
+        ),
+        
+        # O resto do seu layout original
         dcc.Location(id="url", refresh=True),
         dcc.Store(id='filtered-data-store'),
         dcc.Store(id='login-status-store'),

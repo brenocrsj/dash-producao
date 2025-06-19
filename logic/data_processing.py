@@ -41,27 +41,31 @@ def load_and_prepare_data() -> pd.DataFrame:
         df_precificacao = pd.DataFrame(all_pricing_from_db, columns=['id', 'destination', 'price_per_ton', 'start_date', 'end_date'])
         print(f"-> Dados carregados: {df_volume.shape[0]} de volume, {df_frota.shape[0]} de frota, {len(df_precificacao)} de preços.")
 
-        # 2. Padronização de Colunas
+        # 2. PADRONIZAÇÃO DE COLUNAS
         df_volume.columns = df_volume.columns.astype(str).str.strip().str.lower().str.replace(' ', '_')
         df_frota.columns = df_frota.columns.astype(str).str.strip().str.lower().str.replace(' ', '_')
         if not df_precificacao.empty:
             df_precificacao.columns = df_precificacao.columns.astype(str).str.strip().str.lower()
         
-        # 3. Preparação e Limpeza
+        # 3. PREPARAÇÃO E LIMPEZA
+        
+        # Renomeia colunas conhecidas que podem ter nomes inconsistentes
         df_volume.rename(columns={'unnamed:_0': 'tag', 'coluna1': 'tag'}, inplace=True, errors='ignore')
+
+        # Verifica se as colunas essenciais existem após a padronização
+        required_cols = ['data', 'hora', 'volume', 'placa']
+        if not all(col in df_volume.columns for col in required_cols):
+            missing = [col for col in required_cols if col not in df_volume.columns]
+            raise KeyError(f"Colunas essenciais faltando na planilha de Volume: {missing}")
+
+        # Preparação do restante dos dados
         df_volume['data_hora'] = pd.to_datetime(df_volume['data'].astype(str) + ' ' + df_volume['hora'].astype(str), format='mixed', errors='coerce')
         df_volume.dropna(subset=['data_hora'], inplace=True)
         df_volume['data_apenas'] = df_volume['data_hora'].dt.date
         df_volume['hora_do_dia'] = df_volume['data_hora'].dt.hour
         df_volume['volume'] = clean_numeric_column(df_volume['volume'])
-
-        # Verificação de segurança: se a coluna 'tag' ainda não existir, cria uma vazia
-        if 'tag' not in df_volume.columns:
-            print("AVISO: Coluna 'tag' não foi encontrada em df_volume. Criando coluna 'TAG' vazia para evitar erro.")
-            df_volume['tag'] = 'N/A'
         
         if 'placa' in df_frota.columns:
-            df_frota['placa'] = clean_text_column(df_frota['placa'])
             df_frota.drop_duplicates(subset=['placa'], keep='first', inplace=True)
 
         if not df_precificacao.empty:
@@ -70,52 +74,32 @@ def load_and_prepare_data() -> pd.DataFrame:
             df_precificacao['end_date'] = pd.to_datetime(df_precificacao['end_date']).dt.date
             if 'destination' in df_precificacao.columns:
                 df_precificacao['destino'] = clean_text_column(df_precificacao['destination'])
-            df_precificacao['valor_bruto'] = clean_numeric_column(df_precificacao['valor_bruto'])
         
-        # 4. Junção (Merge)
+        # 4. JUNÇÃO (MERGE) E CÁLCULOS
         df_final = pd.merge(df_volume, df_frota, on='placa', how='left')
         
         if not df_precificacao.empty:
             df_final = pd.merge(df_final, df_precificacao, on='destino', how='left')
-            condition = (
-                (df_final['data_apenas'] >= df_final['start_date']) &
-                (df_final['data_apenas'] <= df_final['end_date'])
-            )
-            df_final['valor_bruto_total'] = np.where(condition, df_final['volume'] * df_final['valor_bruto'], 0)
-            df_final['valor_bruto'] = np.where(condition, df_final['valor_bruto'], 0)
+            condition = (df_final['data_apenas'] >= df_final['start_date']) & (df_final['data_apenas'] <= df_final['end_date'])
+            df_final['valor_bruto'] = np.where(condition, clean_numeric_column(df_final['valor_bruto']), 0)
         else:
             df_final['valor_bruto'] = 0
-            df_final['valor_bruto_total'] = 0
 
-        # <<< CORREÇÃO AQUI: REINTRODUZINDO O CÁLCULO DO TURNO >>>
-        if 'hora_do_dia' in df_final.columns:
-            df_final['turno'] = np.where(
-                (df_final['hora_do_dia'] >= 6) & (df_final['hora_do_dia'] < 18), 
-                '1º Turno', 
-                '2º Turno'
-            )
-        else:
-            df_final['turno'] = 'N/A'
+        df_final['valor_bruto_total'] = clean_numeric_column(df_final['volume']) * df_final['valor_bruto']
+        df_final['turno'] = np.where((df_final['hora_do_dia'] >= 6) & (df_final['hora_do_dia'] < 18), '1º Turno', '2º Turno')
+        df_final['dia_da_semana_num'] = pd.to_datetime(df_final['data_apenas']).dt.dayofweek
 
-        if 'data_apenas' in df_final.columns:
-            df_final['dia_da_semana_num'] = pd.to_datetime(df_final['data_apenas']).dt.dayofweek
-        else:
-            df_final['dia_da_semana_num'] = None
-
-        # 6. Renomeação Final
+        # 5. RENOMEAÇÃO FINAL
         df_final.rename(columns={
             'data_hora': 'Data_Hora', 'data_apenas': 'Data_Apenas', 'hora_do_dia': 'Hora_Do_Dia',
             'volume': 'Volume', 'placa': 'Placa', 'destino': 'Destino', 'material': 'Material',
-            'valor_bruto': 'Valor Bruto', 'valor_bruto_total': 'Valor Bruto Total', 'tag': 'TAG',
+            'tag': 'TAG', 'valor_bruto': 'Valor Bruto', 'valor_bruto_total': 'Valor Bruto Total',
             'empresa': 'Empresa', 'turno': 'Turno', 'dia_da_semana_num': 'Dia_Da_Semana_Num'
         }, inplace=True, errors='ignore')
 
         print("Processamento de dados concluído.")
         return df_final
-    
-    except Exception as e:
-        print(f"ERRO CRÍTICO em load_and_prepare_data: {e}")
-        return pd.DataFrame()
+
     except Exception as e:
         print(f"!!!!!!!! OCORREU UM ERRO CRÍTICO AO CARREGAR OS DADOS !!!!!!!!")
         print(f"Detalhe do erro: {e}")
