@@ -4,7 +4,17 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
+from components.common_components import create_page_header, create_metric_card, create_chart_card
+from components.kpis import create_kpi_layout
 from config import THEME_COLORS
+from components.kpis import create_kpi_layout
+from logic.analysis_functions import (
+    calculate_secondary_kpis,
+    get_volume_by_weekday,
+    get_volume_by_hour,
+    get_top_5_by_column,
+    create_figure_from_df
+)
 
 # --- Funções auxiliares para criar componentes reusáveis ---
 
@@ -35,137 +45,60 @@ def create_chart_card(title, description, figure):
         className="content-card"
     )
 
-def create_analysis_tab_layout(dff, theme='dark'):
+def create_analysis_tab_layout(dff, theme):
     """
-    Cria o layout completo para a aba 'Análise Geral',
-    calculando KPIs e gerando gráficos a partir do DataFrame fornecido.
+    Cria o layout completo para a aba 'Visão Geral da Produção' com todas as novas análises.
     """
-    colors = THEME_COLORS[theme]
-
-    # --- Lógica de cálculo de KPIs e geração de gráficos ---
-
-    # Verifique se o dff não está vazio para evitar erros
+    
     if dff.empty:
-        return html.Div([
-            create_page_header("Visão Geral da Produção", "Dashboards e KPIs de produção da frota."),
-            dbc.Alert("Nenhum dado disponível para o período selecionado ou com os filtros aplicados.", color="info", className="m-4")
-        ])
+        return dbc.Alert("Não há dados para os filtros selecionados.", color="info", className="m-4 text-center")
 
-    # Exemplo de Cálculos de KPIs
-    # Substitua 'Volume', 'Viagens' e 'Veiculo' pelas colunas corretas do seu DataFrame
-    # Certifique-se de que essas colunas existem no seu 'dff'.
-    total_volume = dff['Volume'].sum() if 'Volume' in dff.columns else 0
-    total_trips = dff.shape[0] # Contagem de linhas como total de viagens
-    frota_operando = dff['Veiculo'].nunique() if 'Veiculo' in dff.columns else 0 # Exemplo: Contar veículos únicos
+    # --- 1. Buscar todos os dados calculados ---
+    secondary_kpis = calculate_secondary_kpis(dff)
+    df_volume_weekday = get_volume_by_weekday(dff)
+    df_volume_hour = get_volume_by_hour(dff)
+    df_top_destinos = get_top_5_by_column(dff, 'Destino', 'Volume')
+    df_top_veiculos = get_top_5_by_column(dff, 'Placa', 'Volume')
 
-    # Formatação dos KPIs
-    volume_str = f"{total_volume:,.2f} m³".replace(",", "X").replace(".", ",").replace("X", ".") # Formato brasileiro
-    trips_str = f"{int(total_trips):,}".replace(",", ".")
-    frota_str = str(int(frota_operando))
+    # --- 2. Criar todas as figuras para os gráficos ---
+    fig_volume_weekday = create_figure_from_df(df_volume_weekday, 'bar', 'Dia_Da_Semana', 'Volume', 'Volume por Dia da Semana')
+    fig_volume_hour = create_figure_from_df(df_volume_hour, 'bar', 'Hora_Do_Dia', 'Volume', 'Volume por Hora do Dia')
+    
+    # Gráficos de barras horizontais para Top 5
+    fig_top_destinos = create_figure_from_df(df_top_destinos, 'bar', 'Volume', 'Destino', 'Top 5 Destinos por Volume', orientation='h')
+    if fig_top_destinos:
+        fig_top_destinos.update_layout(yaxis={'categoryorder':'total ascending'})
 
-    # Gráfico 1: Volume por Hora do Dia
-    fig_volume_by_hour = go.Figure() # Inicializa com figura vazia para caso a condição não seja atendida
-    if 'Data_Hora' in dff.columns and 'Volume' in dff.columns:
-        df_volume_hora = dff.copy()
-        # Garante que 'Data_Hora' é datetime antes de extrair a hora
-        df_volume_hora['Data_Hora'] = pd.to_datetime(df_volume_hora['Data_Hora'])
-        df_volume_hora['Hora_Apenas'] = df_volume_hora['Data_Hora'].dt.hour
-        volume_por_hora = df_volume_hora.groupby('Hora_Apenas')['Volume'].sum().reset_index()
-        
-        # Ordena as horas para garantir que o gráfico seja exibido corretamente
-        volume_por_hora = volume_por_hora.sort_values('Hora_Apenas')
+    fig_top_veiculos = create_figure_from_df(df_top_veiculos, 'bar', 'Volume', 'Placa', 'Top 5 Veículos por Volume', orientation='h')
+    if fig_top_veiculos:
+        fig_top_veiculos.update_layout(yaxis={'categoryorder':'total ascending'})
 
-        fig_volume_by_hour = px.bar(
-            volume_por_hora,
-            x='Hora_Apenas',
-            y='Volume',
-            title='Volume Total por Hora do Dia',
-            labels={'Hora_Apenas': 'Hora do Dia', 'Volume': 'Volume (m³)'},
-            color_discrete_sequence=[colors['primary']],
-            template='plotly_dark' if theme == 'dark' else 'plotly_white'
-        )
-        fig_volume_by_hour.update_layout(
-            plot_bgcolor=colors['card_bg'],
-            paper_bgcolor=colors['card_bg'],
-            font_color=colors['text'],
-            xaxis_title=None,
-            yaxis_title=None,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        fig_volume_by_hour.update_traces(marker_color=colors['primary'])
-
-
-    # Gráfico 2: Viagens por Material
-    fig_trips_by_material = go.Figure() # Inicializa com figura vazia
-    if 'Material' in dff.columns: # Verifique apenas 'Material', a contagem de linhas é sempre possível
-        # Para viagens, contamos as linhas por material
-        viagens_por_material = dff.groupby('Material').size().reset_index(name='Numero_Viagens')
-        
-        fig_trips_by_material = px.pie(
-            viagens_por_material,
-            values='Numero_Viagens',
-            names='Material',
-            title='Distribuição de Viagens por Material',
-            hole=0.3,
-            color_discrete_sequence=px.colors.qualitative.Pastel # Uma paleta de cores para o gráfico de pizza
-        )
-        fig_trips_by_material.update_layout(
-            plot_bgcolor=colors['card_bg'],
-            paper_bgcolor=colors['card_bg'],
-            font_color=colors['text'],
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-
-
-    # Gráfico 3: Desempenho Semanal (Volume e Viagens ao longo da semana)
-    fig_weekly_performance = go.Figure() # Inicializa com figura vazia
-    if 'Data_Apenas' in dff.columns and 'Volume' in dff.columns: # 'Viagens' pode ser calculado pela contagem de linhas
-        # Garante que 'Data_Apenas' é datetime antes de agrupar
-        df_semanal = dff.copy()
-        df_semanal['Data_Apenas'] = pd.to_datetime(df_semanal['Data_Apenas'])
-
-        df_semanal_agg = df_semanal.groupby('Data_Apenas').agg(
-            Total_Volume=('Volume', 'sum'),
-            Total_Viagens=('Material', 'size') # Contar o número de entradas para 'Viagens'
-        ).reset_index()
-        
-        # Certifique-se de que Data_Apenas é datetime para ordenação
-        df_semanal_agg = df_semanal_agg.sort_values('Data_Apenas')
-
-        fig_weekly_performance = px.line(
-            df_semanal_agg,
-            x='Data_Apenas',
-            y=['Total_Volume', 'Total_Viagens'],
-            title='Desempenho Diário: Volume e Viagens',
-            labels={'Data_Apenas': 'Data', 'value': 'Valor', 'variable': 'Métrica'},
-            color_discrete_map={'Total_Volume': colors['primary'], 'Total_Viagens': colors['secondary']},
-            template='plotly_dark' if theme == 'dark' else 'plotly_white'
-        )
-        fig_weekly_performance.update_layout(
-            plot_bgcolor=colors['card_bg'],
-            paper_bgcolor=colors['card_bg'],
-            font_color=colors['text'],
-            xaxis_title=None,
-            yaxis_title=None,
-            legend_title_text='Métricas',
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        fig_weekly_performance.update_xaxes(showgrid=False)
-        fig_weekly_performance.update_yaxes(gridcolor=colors['grid_line'])
-
-    # --- Layout da aba com os dados reais ---
-    return html.Div([
+    # --- 3. Montar o Layout da página ---
+    layout = html.Div([
         create_page_header("Visão Geral da Produção", "Dashboards e KPIs de produção da frota."),
+        
+        # Linha dos KPIs principais (usando a função de kpis.py)
+        create_kpi_layout(dff, theme),
+
+        # Linha dos novos KPIs secundários
         dbc.Row([
-            create_metric_card("Volume Total", volume_str, "Volume total produzido hoje"),
-            create_metric_card("Viagens Realizadas", trips_str, "Total de viagens no dia"),
-            create_metric_card("Frota Operando", frota_str, "Número de veículos ativos"),
+            create_metric_card("Viagens 1º Turno", secondary_kpis['viagens_turno1'], "Das 06:00 às 17:59"),
+            create_metric_card("Viagens 2º Turno", secondary_kpis['viagens_turno2'], "Das 18:00 às 05:59"),
+            create_metric_card("Melhor Dia (Volume)", secondary_kpis['melhor_dia_data'], f"Volume: {secondary_kpis['melhor_dia_volume']}"),
+            create_metric_card("Destino Mais Rentável", secondary_kpis['destino_rentavel'], "Baseado na receita total do período"),
         ], className="g-4 mb-4"),
+
+        # Linha dos gráficos de análise temporal
         dbc.Row([
-            dbc.Col(create_chart_card("Volume por Hora", "Distribuição do volume ao longo do dia", fig_volume_by_hour), lg=6, className="mb-4"),
-            dbc.Col(create_chart_card("Viagens por Material", "Quantidade de viagens por tipo de material", fig_trips_by_material), lg=6, className="mb-4"),
+            dbc.Col(create_chart_card("Volume por Dia da Semana", "Performance ao longo da semana", fig_volume_weekday), lg=6, className="mb-4"),
+            dbc.Col(create_chart_card("Volume por Hora do Dia", "Picos de produção durante o dia", fig_volume_hour), lg=6, className="mb-4"),
         ]),
+
+        # Linha dos gráficos de Top 5
         dbc.Row([
-            dbc.Col(create_chart_card("Desempenho Diário", "Volume e viagens ao longo do período", fig_weekly_performance), lg=12, className="mb-4"),
-        ])
+            dbc.Col(create_chart_card("Top 5 Destinos", "Maiores volumes por destino", fig_top_destinos), lg=6, className="mb-4"),
+            dbc.Col(create_chart_card("Top 5 Veículos", "Maiores volumes por placa", fig_top_veiculos), lg=6, className="mb-4"),
+        ]),
     ])
+    
+    return layout
